@@ -18,8 +18,9 @@ import Forgot from "./pages/Forgot.jsx";
 import Reset from "./pages/Reset.jsx";
 import SafeMeetup from "./pages/SafeMeetup.jsx";
 
-function RequireAuth({ authed, children }){
+function RequireAuth({ authed, loading, children }){
   const loc = useLocation();
+  if (loading) return null;
   if (!authed) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
   return children;
 }
@@ -53,32 +54,36 @@ export default function App(){
     <>
       <div className="container">
         <Routes>
-          <Route path="/" element={<Home me={me} notify={notify} />} />
+          <Route path="/" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <Home me={me} notify={notify} />
+            </RequireAuth>
+          }/>
           <Route path="/search" element={<Search me={me} notify={notify} />} />
           <Route path="/post" element={
-            <RequireAuth authed={me.authed}>
+            <RequireAuth authed={me.authed} loading={me.loading}>
               <Post me={me} notify={notify} />
             </RequireAuth>
           }/>
           <Route path="/listing/:id" element={<Listing me={me} notify={notify} />} />
           <Route path="/listing/:id/meetup" element={
-            <RequireAuth authed={me.authed}>
+            <RequireAuth authed={me.authed} loading={me.loading}>
               <SafeMeetup notify={notify} />
             </RequireAuth>
           }/>
           <Route path="/messages" element={
-            <RequireAuth authed={me.authed}>
+            <RequireAuth authed={me.authed} loading={me.loading}>
               <Messages me={me} notify={notify} />
             </RequireAuth>
           }/>
           <Route path="/chat/:id" element={
-            <RequireAuth authed={me.authed}>
+            <RequireAuth authed={me.authed} loading={me.loading}>
               <Chat me={me} notify={notify} />
             </RequireAuth>
           }/>
           <Route path="/profile" element={<Profile me={me} notify={notify} refreshMe={refreshMe} />} />
           <Route path="/observing" element={
-            <RequireAuth authed={me.authed}>
+            <RequireAuth authed={me.authed} loading={me.loading}>
               <Observing me={me} notify={notify} />
             </RequireAuth>
           }/>
