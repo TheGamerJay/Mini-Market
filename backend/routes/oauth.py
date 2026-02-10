@@ -13,18 +13,23 @@ oauth = OAuth()
 def init_oauth(app):
     """Call in create_app() to register the Google OAuth client."""
     oauth.init_app(app)
-    oauth.register(
-        name="google",
-        client_id=os.environ.get("GOOGLE_CLIENT_ID"),
-        client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
-        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-        client_kwargs={"scope": "openid email profile"},
-    )
+    client_id = os.environ.get("GOOGLE_CLIENT_ID")
+    client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
+    if client_id and client_secret:
+        oauth.register(
+            name="google",
+            client_id=client_id,
+            client_secret=client_secret,
+            server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+            client_kwargs={"scope": "openid email profile"},
+        )
 
 
 @oauth_bp.get("/google/start")
 def google_start():
     """Redirect the browser to Google's consent screen."""
+    if not hasattr(oauth, "google"):
+        return jsonify({"error": "Google OAuth not configured"}), 503
     redirect_uri = request.url_root.rstrip("/") + "/api/auth/google/callback"
     return oauth.google.authorize_redirect(redirect_uri)
 

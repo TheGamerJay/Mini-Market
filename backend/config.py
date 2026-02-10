@@ -1,10 +1,16 @@
 import os
 
+def _fix_db_url(url):
+    # Railway gives postgres:// but SQLAlchemy 2.x requires postgresql://
+    if url and url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql://", 1)
+    return url
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 
     # Railway provides DATABASE_URL
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///local.db")
+    SQLALCHEMY_DATABASE_URI = _fix_db_url(os.getenv("DATABASE_URL", "sqlite:///local.db"))
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
