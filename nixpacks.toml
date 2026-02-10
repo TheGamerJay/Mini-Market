@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["python312", "gcc"]
+nixPkgs = ["python312Full", "gcc"]
 
 [phases.install]
-cmds = ["cd backend && pip install -r requirements.txt"]
+cmds = ["cd backend && python3 -m ensurepip && python3 -m pip install -r requirements.txt"]
 
 [start]
-cmd = "cd backend && gunicorn app:app --bind 0.0.0.0:${PORT:-5000}"
+cmd = "cd backend && python3 -m gunicorn app:app --bind 0.0.0.0:${PORT:-5000}"
