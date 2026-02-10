@@ -50,6 +50,10 @@ export default function App(){
     setMe({ loading:false, authed: !!res.authenticated, user: res.user || null });
   };
 
+  const loc = useLocation();
+  const authPages = ["/login", "/signup", "/forgot", "/reset"];
+  const hideNav = authPages.includes(loc.pathname);
+
   return (
     <>
       <div className="container">
@@ -59,13 +63,21 @@ export default function App(){
               <Home me={me} notify={notify} />
             </RequireAuth>
           }/>
-          <Route path="/search" element={<Search me={me} notify={notify} />} />
+          <Route path="/search" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <Search me={me} notify={notify} />
+            </RequireAuth>
+          }/>
           <Route path="/post" element={
             <RequireAuth authed={me.authed} loading={me.loading}>
               <Post me={me} notify={notify} />
             </RequireAuth>
           }/>
-          <Route path="/listing/:id" element={<Listing me={me} notify={notify} />} />
+          <Route path="/listing/:id" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <Listing me={me} notify={notify} />
+            </RequireAuth>
+          }/>
           <Route path="/listing/:id/meetup" element={
             <RequireAuth authed={me.authed} loading={me.loading}>
               <SafeMeetup notify={notify} />
@@ -81,7 +93,11 @@ export default function App(){
               <Chat me={me} notify={notify} />
             </RequireAuth>
           }/>
-          <Route path="/profile" element={<Profile me={me} notify={notify} refreshMe={refreshMe} />} />
+          <Route path="/profile" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <Profile me={me} notify={notify} refreshMe={refreshMe} />
+            </RequireAuth>
+          }/>
           <Route path="/observing" element={
             <RequireAuth authed={me.authed} loading={me.loading}>
               <Observing me={me} notify={notify} />
@@ -89,7 +105,7 @@ export default function App(){
           }/>
 
           <Route path="/login" element={<Login notify={notify} refreshMe={refreshMe} />} />
-          <Route path="/signup" element={<Signup notify={notify} refreshMe={refreshMe} />} />
+          <Route path="/signup" element={<Signup notify={notify} />} />
           <Route path="/forgot" element={<Forgot notify={notify} />} />
           <Route path="/reset" element={<Reset notify={notify} />} />
 
@@ -97,7 +113,7 @@ export default function App(){
         </Routes>
       </div>
 
-      <BottomNav />
+      {!hideNav && <BottomNav />}
       <Toast text={toast} />
     </>
   );

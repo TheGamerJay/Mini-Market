@@ -6,7 +6,7 @@ import Button from "../components/Button.jsx";
 import { IconPerson, IconEnvelope, IconLock, IconGoogle, IconFacebook } from "../components/Icons.jsx";
 import { api } from "../api.js";
 
-export default function Signup({ notify, refreshMe }){
+export default function Signup({ notify }){
   const [display_name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,9 +19,8 @@ export default function Signup({ notify, refreshMe }){
     setBusy(true);
     try{
       await api.signup({ display_name, email, password });
-      await refreshMe();
-      notify("Account created.");
-      nav("/");
+      notify("Account created. Please log in.");
+      nav("/login");
     }catch(err){
       notify(err.message);
     }finally{
