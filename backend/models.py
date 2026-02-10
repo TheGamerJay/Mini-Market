@@ -1,163 +1,164 @@
-from datetime import datetime, timezone
-from flask_login import UserMixin
+import uuid
+from datetime import datetime
+
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
+
 from extensions import db
 
+def _uuid():
+    return str(uuid.uuid4())
 
-# ── 1. USER ──────────────────────────────────────────────
 class User(UserMixin, db.Model):
-    __tablename__ = 'users'
+    __tablename__ = "users"
 
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
-    avatar_url = db.Column(db.String(300))
-    bio = db.Column(db.String(500))
-    location_lat = db.Column(db.Float)
-    location_lng = db.Column(db.Float)
-    location_name = db.Column(db.String(200))
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.Text, nullable=False)
 
-    listings = db.relationship('Listing', backref='seller', lazy=True)
-    sent_messages = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy=True)
-    received_messages = db.relationship('Message', foreign_keys='Message.receiver_id', backref='receiver', lazy=True)
-    favorites = db.relationship('Favorite', backref='user', lazy=True)
-    reports_filed = db.relationship('Report', foreign_keys='Report.reporter_id', backref='reporter', lazy=True)
+    display_name = db.Column(db.String(120))
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
+    rating_avg = db.Column(db.Numeric, default=0)
+    rating_count = db.Column(db.Integer, default=0)
 
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+    is_pro = db.Column(db.Boolean, default=False)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'username': self.username,
-            'email': self.email,
-            'avatar_url': self.avatar_url,
-            'bio': self.bio,
-            'location_name': self.location_name,
-            'created_at': self.created_at.isoformat()
-        }
+    def set_password(self, pw: str) -> None:
+        self.password_hash = generate_password_hash(pw)
 
+    def check_password(self, pw: str) -> bool:
+        return check_password_hash(self.password_hash, pw)
 
-# ── 2. LISTING ───────────────────────────────────────────
 class Listing(db.Model):
-    __tablename__ = 'listings'
+    __tablename__ = "listings"
 
-    id = db.Column(db.Integer, primary_key=True)
-    seller_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+
+    title = db.Column(db.Text, nullable=False)
     description = db.Column(db.Text)
-    price = db.Column(db.Float, nullable=False)
-    category = db.Column(db.String(100))
-    condition = db.Column(db.String(50))
-    image_urls = db.Column(db.Text)
-    location_lat = db.Column(db.Float)
-    location_lng = db.Column(db.Float)
-    location_name = db.Column(db.String(200))
-    radius_km = db.Column(db.Float, default=10.0)
-    status = db.Column(db.String(20), default='active')
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
-                           onupdate=lambda: datetime.now(timezone.utc))
+    price_cents = db.Column(db.Integer, nullable=False)
 
-    favorites = db.relationship('Favorite', backref='listing', lazy=True)
+    category = db.Column(db.String(64), nullable=False)
+    condition = db.Column(db.String(32), nullable=False)
 
-    def to_dict(self):
-        import json
-        return {
-            'id': self.id,
-            'seller_id': self.seller_id,
-            'seller': self.seller.username if self.seller else None,
-            'title': self.title,
-            'description': self.description,
-            'price': self.price,
-            'category': self.category,
-            'condition': self.condition,
-            'image_urls': json.loads(self.image_urls) if self.image_urls else [],
-            'location_lat': self.location_lat,
-            'location_lng': self.location_lng,
-            'location_name': self.location_name,
-            'radius_km': self.radius_km,
-            'status': self.status,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
-        }
+    city = db.Column(db.String(64))
+    zip = db.Column(db.String(16))
 
+    pickup_or_shipping = db.Column(db.String(16), nullable=False)  # "pickup"|"shipping"
+    is_sold = db.Column(db.Boolean, default=False)
 
-# ── 3. MESSAGE ───────────────────────────────────────────
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+class ListingImage(db.Model):
+    __tablename__ = "listing_images"
+
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=False, index=True)
+    image_url = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+class Observing(db.Model):
+    __tablename__ = "observing"
+
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "listing_id", name="uq_observing_user_listing"),)
+
+class Conversation(db.Model):
+    __tablename__ = "conversations"
+
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=False, index=True)
+
+    buyer_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    seller_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint("listing_id", "buyer_id", "seller_id", name="uq_conv_triplet"),)
+
 class Message(db.Model):
-    __tablename__ = 'messages'
+    __tablename__ = "messages"
 
-    id = db.Column(db.Integer, primary_key=True)
-    sender_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    receiver_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    listing_id = db.Column(db.Integer, db.ForeignKey('listings.id'))
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    conversation_id = db.Column(db.String(36), db.ForeignKey("conversations.id"), nullable=False, index=True)
+    sender_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
     body = db.Column(db.Text, nullable=False)
-    read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-    listing = db.relationship('Listing', backref='messages')
+class SafeMeetLocation(db.Model):
+    __tablename__ = "safe_meet_locations"
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'sender_id': self.sender_id,
-            'receiver_id': self.receiver_id,
-            'listing_id': self.listing_id,
-            'body': self.body,
-            'read': self.read,
-            'created_at': self.created_at.isoformat()
-        }
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=False, index=True)
 
+    place_name = db.Column(db.String(255), nullable=False)
+    address = db.Column(db.String(255), nullable=False)
+    lat = db.Column(db.Numeric, nullable=False)
+    lng = db.Column(db.Numeric, nullable=False)
+    place_type = db.Column(db.String(64), nullable=False)
 
-# ── 4. FAVORITE ──────────────────────────────────────────
-class Favorite(db.Model):
-    __tablename__ = 'favorites'
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    listing_id = db.Column(db.Integer, db.ForeignKey('listings.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+class SafetyAckEvent(db.Model):
+    __tablename__ = "safety_ack_events"
 
-    __table_args__ = (db.UniqueConstraint('user_id', 'listing_id'),)
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=True, index=True)
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'listing_id': self.listing_id,
-            'created_at': self.created_at.isoformat()
-        }
+    event_type = db.Column(db.String(64), nullable=False)  # e.g. "private_location_ack"
+    ack_text = db.Column(db.Text, nullable=False)
 
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-# ── 5. REPORT ────────────────────────────────────────────
-class Report(db.Model):
-    __tablename__ = 'reports'
+class Boost(db.Model):
+    __tablename__ = "boosts"
 
-    id = db.Column(db.Integer, primary_key=True)
-    reporter_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    reported_user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    reported_listing_id = db.Column(db.Integer, db.ForeignKey('listings.id'))
-    reason = db.Column(db.String(50), nullable=False)
-    details = db.Column(db.Text)
-    status = db.Column(db.String(20), default='pending')
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=False, index=True)
 
-    reported_user = db.relationship('User', foreign_keys=[reported_user_id], backref='reports_against')
-    reported_listing = db.relationship('Listing', backref='reports')
+    starts_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    ends_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    status = db.Column(db.String(32), nullable=False)  # "active"|"expired"|"canceled"
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'reporter_id': self.reporter_id,
-            'reported_user_id': self.reported_user_id,
-            'reported_listing_id': self.reported_listing_id,
-            'reason': self.reason,
-            'details': self.details,
-            'status': self.status,
-            'created_at': self.created_at.isoformat()
-        }
+    paid_cents = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+class BoostImpression(db.Model):
+    __tablename__ = "boost_impressions"
+
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    boost_id = db.Column(db.String(36), db.ForeignKey("boosts.id"), nullable=False, index=True)
+    viewer_user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=True, index=True)
+    shown_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+class Subscription(db.Model):
+    __tablename__ = "subscriptions"
+
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+
+    stripe_customer_id = db.Column(db.String(255))
+    stripe_subscription_id = db.Column(db.String(255))
+
+    status = db.Column(db.String(32), nullable=False)  # "active"|"canceled"|"past_due"
+    current_period_end = db.Column(db.DateTime(timezone=True))
+
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+class Ad(db.Model):
+    __tablename__ = "ads"
+
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    title = db.Column(db.String(255), nullable=False)
+    image_url = db.Column(db.Text)
+    link_url = db.Column(db.Text)
+    active = db.Column(db.Boolean, default=True)
+
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)

@@ -1,51 +1,50 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-from extensions import db, login_manager
+
+from config import Config
+from extensions import db, migrate, login_manager
+from models import User
+from routes import register_blueprints
 
 load_dotenv()
 
-app = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+    app.config.from_object(Config)
 
-# --- Config ---
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
-    'DATABASE_PUBLIC_URL',
-    'sqlite:///mini_market.db'
-)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+    # max upload size
+    app.config["MAX_CONTENT_LENGTH"] = app.config["MAX_CONTENT_LENGTH_MB"] * 1024 * 1024
 
-# --- Init extensions with app ---
-db.init_app(app)
-login_manager.init_app(app)
-CORS(app, supports_credentials=True)
+    # CORS
+    CORS(
+        app,
+        supports_credentials=True,
+        resources={r"/api/*": {"origins": [app.config["FRONTEND_ORIGIN"]]}}
+    )
 
-login_manager.login_view = 'auth.login'
+    # ensure upload folder exists
+    os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-from models import User
+    # init extensions
+    db.init_app(app)
+    migrate.init_app(app, db)
+    login_manager.init_app(app)
 
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.get(User, int(user_id))
+    @login_manager.user_loader
+    def load_user(user_id):
+        return db.session.get(User, user_id)
 
-# --- Register route blueprints ---
-from routes.auth_routes import auth_bp
-from routes.listing_routes import listing_bp
-from routes.message_routes import message_bp
+    register_blueprints(app)
 
-app.register_blueprint(auth_bp, url_prefix='/api/auth')
-app.register_blueprint(listing_bp, url_prefix='/api/listings')
-app.register_blueprint(message_bp, url_prefix='/api/messages')
+    @app.get("/api/health")
+    def health():
+        return jsonify({"ok": True}), 200
 
-@app.route('/')
-def index():
-    return {'status': 'alive', 'app': 'Mini Market API'}
+    return app
 
-# --- Create tables on first run ---
-with app.app_context():
-    db.create_all()
+app = create_app()
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
