@@ -33,17 +33,21 @@ def google_start():
     """Redirect the browser to Google's consent screen."""
     if not hasattr(oauth, "google"):
         return jsonify({"error": "Google OAuth not configured"}), 503
-    redirect_uri = request.url_root.rstrip("/") + "/api/auth/google/callback"
+    redirect_uri = current_app.config["FRONTEND_ORIGIN"].rstrip("/") + "/api/auth/google/callback"
     return oauth.google.authorize_redirect(redirect_uri)
 
 
 @oauth_bp.get("/google/callback")
 def google_callback():
     """Google redirects here after consent. Create/find user, log in via session, redirect to frontend."""
-    token = oauth.google.authorize_access_token()
+    try:
+        token = oauth.google.authorize_access_token()
+    except Exception as e:
+        current_app.logger.error(f"Google OAuth token exchange failed: {e}")
+        return redirect(current_app.config["FRONTEND_ORIGIN"] + "/login?error=oauth_failed")
     userinfo = token.get("userinfo")
     if not userinfo:
-        return jsonify({"error": "Google did not return user info"}), 400
+        return redirect(current_app.config["FRONTEND_ORIGIN"] + "/login?error=no_user_info")
 
     sub = userinfo.get("sub")
     email = userinfo.get("email", "")
