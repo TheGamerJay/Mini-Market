@@ -43,7 +43,10 @@ export default function Home({ me, notify }){
     <>
       {/* ── Header ── */}
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 0 6px" }}>
-        <span className="gradient-text" style={{ fontSize:24, fontWeight:800 }}>Pocket Market</span>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <img src="/pocketmarket_favicon_transparent_48x48.png" alt="Pocket Market" style={{ width:32, height:32 }} />
+          <span className="gradient-text" style={{ fontSize:24, fontWeight:800 }}>Pocket Market</span>
+        </div>
         <Link to="/profile" style={{
           display:"flex", alignItems:"center", justifyContent:"center",
           width:38, height:38, borderRadius:"50%",

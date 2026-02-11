@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { IconBack, IconBag } from "./Icons.jsx";
+import { IconBack } from "./Icons.jsx";
 
 export default function AuthHeader({ title }){
   const nav = useNavigate();
@@ -15,7 +15,7 @@ export default function AuthHeader({ title }){
       </div>
       <div className="auth-header">
         <div className="auth-logo">
-          <IconBag size={32} color="var(--cyan)" />
+          <img src="/pocketmarket_favicon_transparent_64x64.png" alt="Pocket Market" style={{ width:40, height:40 }} />
           <span className="gradient-text" style={{ fontSize:22, fontWeight:800 }}>Pocket Market</span>
         </div>
         <h1 style={{ fontSize:24, fontWeight:800, marginTop:16, marginBottom:0 }}>{title}</h1>
