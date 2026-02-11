@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../components/Card.jsx";
-import { IconPerson, IconSearch, IconChevronRight, IconCamera, IconEye } from "../components/Icons.jsx";
+import { IconSearch, IconChevronRight, IconCamera, IconEye } from "../components/Icons.jsx";
 import DistanceLabel from "../components/DistanceLabel.jsx";
 import { api } from "../api.js";
 
@@ -42,15 +42,8 @@ export default function Home({ me, notify }){
   return (
     <>
       {/* ── Header ── */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"14px 0 6px" }}>
+      <div style={{ display:"flex", justifyContent:"center", padding:"14px 0 6px" }}>
         <img src="/pocketmarket_favicon_transparent_512x512.png" alt="Pocket Market" style={{ width:120, height:120 }} />
-        <Link to="/profile" style={{
-          display:"flex", alignItems:"center", justifyContent:"center",
-          width:38, height:38, borderRadius:"50%",
-          border:"1px solid var(--border)", background:"var(--panel)",
-        }}>
-          <IconPerson size={20} color="var(--muted)" />
-        </Link>
       </div>
 
       {/* ── Search bar ── */}
