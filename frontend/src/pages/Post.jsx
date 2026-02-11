@@ -72,8 +72,39 @@ export default function Post({ notify }){
         <form onSubmit={onSubmit} className="col">
           <Input label="Title" value={title} onChange={e=>setTitle(e.target.value)} />
           <Input label="Price (USD)" value={price} onChange={e=>setPrice(e.target.value)} />
-          <Input label="Category" value={category} onChange={e=>setCategory(e.target.value)} />
-          <Input label="Condition (new/used)" value={condition} onChange={e=>setCondition(e.target.value)} />
+          <div className="col" style={{gap:4}}>
+            <div className="muted" style={{fontSize:13}}>Category</div>
+            <select value={category} onChange={e=>setCategory(e.target.value)} style={{
+              width:"100%", padding:"12px 12px", borderRadius:14,
+              border:"1px solid var(--border)", background:"rgba(255,255,255,.04)",
+              color:"var(--text)", outline:"none", fontSize:14,
+            }}>
+              <option value="electronics">Electronics</option>
+              <option value="clothing">Clothing</option>
+              <option value="furniture">Furniture</option>
+              <option value="art">Art</option>
+              <option value="books">Books</option>
+              <option value="sports">Sports</option>
+              <option value="toys">Toys</option>
+              <option value="home">Home</option>
+              <option value="auto">Auto</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          <div className="col" style={{gap:4}}>
+            <div className="muted" style={{fontSize:13}}>Condition</div>
+            <select value={condition} onChange={e=>setCondition(e.target.value)} style={{
+              width:"100%", padding:"12px 12px", borderRadius:14,
+              border:"1px solid var(--border)", background:"rgba(255,255,255,.04)",
+              color:"var(--text)", outline:"none", fontSize:14,
+            }}>
+              <option value="new">New</option>
+              <option value="like new">Like New</option>
+              <option value="used">Used</option>
+              <option value="fair">Fair</option>
+            </select>
+          </div>
           <Input label="City (optional)" value={city} onChange={e=>setCity(e.target.value)} />
 
           <div className="col" style={{gap:8}}>
