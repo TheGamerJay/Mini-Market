@@ -38,7 +38,7 @@ export default function Login({ notify, refreshMe }){
         <button className="btn-social" type="button" onClick={() => { window.location.href = `${api.base}/api/auth/google/start`; }}>
           <IconGoogle size={20} /> Log in with Google
         </button>
-        <button className="btn-social" type="button" onClick={() => notify("Facebook login coming soon")}>
+        <button className="btn-social" type="button" onClick={() => { window.location.href = `${api.base}/api/auth/facebook/start`; }}>
           <IconFacebook size={20} /> Log in with Facebook
         </button>
       </div>
