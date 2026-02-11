@@ -19,6 +19,9 @@ import Reset from "./pages/Reset.jsx";
 import SafeMeetup from "./pages/SafeMeetup.jsx";
 import Notifications from "./pages/Notifications.jsx";
 import Pro from "./pages/Pro.jsx";
+import Support from "./pages/Support.jsx";
+import Terms from "./pages/Terms.jsx";
+import Privacy from "./pages/Privacy.jsx";
 
 function RequireAuth({ authed, loading, children }){
   const loc = useLocation();
@@ -134,6 +137,13 @@ export default function App(){
               <Pro me={me} notify={notify} refreshMe={refreshMe} />
             </RequireAuth>
           }/>
+          <Route path="/support" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <Support me={me} notify={notify} />
+            </RequireAuth>
+          }/>
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
 
           <Route path="/login" element={<Login notify={notify} refreshMe={refreshMe} />} />
           <Route path="/signup" element={<Signup notify={notify} />} />

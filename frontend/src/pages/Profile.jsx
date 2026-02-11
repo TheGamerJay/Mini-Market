@@ -172,6 +172,51 @@ export default function Profile({ me, notify, refreshMe }){
         )}
       </div>
 
+      {/* Support & Legal */}
+      <div style={{ marginTop:16 }}>
+        <div className="h2" style={{ marginBottom:10 }}>Support & Info</div>
+        <Card>
+          <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+            <Link to="/support" style={{ textDecoration:"none", color:"inherit" }}>
+              <div style={{
+                display:"flex", justifyContent:"space-between", alignItems:"center",
+                padding:"12px 0", borderBottom:"1px solid var(--border)",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:16 }}>&#x1F6DF;</span>
+                  <span style={{ fontWeight:600, fontSize:14 }}>Help & Support</span>
+                </div>
+                <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
+              </div>
+            </Link>
+            <Link to="/terms" style={{ textDecoration:"none", color:"inherit" }}>
+              <div style={{
+                display:"flex", justifyContent:"space-between", alignItems:"center",
+                padding:"12px 0", borderBottom:"1px solid var(--border)",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:16 }}>&#x1F4CB;</span>
+                  <span style={{ fontWeight:600, fontSize:14 }}>Terms of Service</span>
+                </div>
+                <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
+              </div>
+            </Link>
+            <Link to="/privacy" style={{ textDecoration:"none", color:"inherit" }}>
+              <div style={{
+                display:"flex", justifyContent:"space-between", alignItems:"center",
+                padding:"12px 0",
+              }}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <span style={{ fontSize:16 }}>&#x1F512;</span>
+                  <span style={{ fontWeight:600, fontSize:14 }}>Privacy Policy</span>
+                </div>
+                <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
+              </div>
+            </Link>
+          </div>
+        </Card>
+      </div>
+
       {/* Safety tips */}
       <Card style={{ marginTop:16 }}>
         <div className="h2">Safety Tips</div>
