@@ -112,14 +112,60 @@ export default function Listing({ me, notify }){
         </div>
       )}
 
+      {/* ── Sold banner ── */}
+      {listing.is_sold && (
+        <div style={{
+          marginTop:14, padding:"10px 14px", borderRadius:12,
+          background:"var(--red, #e74c3c)", color:"#fff",
+          fontWeight:800, fontSize:14, textAlign:"center",
+        }}>
+          This item has been sold
+        </div>
+      )}
+
       {/* ── Action buttons ── */}
       <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:10 }}>
-        <Button icon={<IconEye size={18} />} onClick={toggleObs}>
-          {observing ? "Observing" : "Observe"}
-        </Button>
-        <Button icon={<IconEnvelope size={18} />} onClick={messageSeller}>
-          Message Seller
-        </Button>
+        {me?.authed && me.user?.id === listing.user_id ? (
+          <>
+            <Button
+              onClick={async () => {
+                try {
+                  await api.updateListing(listing.id, { is_sold: !listing.is_sold });
+                  setListing(prev => ({ ...prev, is_sold: !prev.is_sold }));
+                  notify(listing.is_sold ? "Marked as available." : "Marked as sold.");
+                } catch(err) { notify(err.message); }
+              }}
+            >
+              {listing.is_sold ? "Mark as Available" : "Mark as Sold"}
+            </Button>
+            <button
+              onClick={async () => {
+                if (!window.confirm("Delete this listing? This can't be undone.")) return;
+                try {
+                  await api.deleteListing(listing.id);
+                  notify("Listing deleted.");
+                  nav("/");
+                } catch(err) { notify(err.message); }
+              }}
+              style={{
+                padding:"12px 16px", borderRadius:14, fontSize:14, fontWeight:700,
+                background:"none", border:"1.5px solid var(--red, #e74c3c)",
+                color:"var(--red, #e74c3c)", cursor:"pointer",
+              }}
+            >
+              Delete Listing
+            </button>
+          </>
+        ) : (
+          <>
+            <Button icon={<IconEye size={18} />} onClick={toggleObs}>
+              {observing ? "Observing" : "Observe"}
+            </Button>
+            <Button icon={<IconEnvelope size={18} />} onClick={messageSeller}>
+              Message Seller
+            </Button>
+          </>
+        )}
       </div>
 
       {/* ── Safe meetup ── */}
