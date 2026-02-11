@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 
 from extensions import db
-from models import Conversation, Message, Listing
+from models import Conversation, Message, Listing, User, ListingImage
 
 messages_bp = Blueprint("messages", __name__)
 
@@ -36,14 +36,33 @@ def start_conversation():
 @login_required
 def my_conversations():
     uid = current_user.id
-    rows = Conversation.query.filter((Conversation.buyer_id == uid) | (Conversation.seller_id == uid)).order_by(Conversation.created_at.desc()).all()
-    return jsonify({"conversations": [{
-        "id": c.id,
-        "listing_id": c.listing_id,
-        "buyer_id": c.buyer_id,
-        "seller_id": c.seller_id,
-        "created_at": c.created_at.isoformat()
-    } for c in rows]}), 200
+    rows = Conversation.query.filter(
+        (Conversation.buyer_id == uid) | (Conversation.seller_id == uid)
+    ).order_by(Conversation.created_at.desc()).all()
+
+    result = []
+    for c in rows:
+        other_id = c.seller_id if c.buyer_id == uid else c.buyer_id
+        other_user = db.session.get(User, other_id)
+        listing = db.session.get(Listing, c.listing_id)
+        last_msg = Message.query.filter_by(conversation_id=c.id).order_by(Message.created_at.desc()).first()
+        first_img = ListingImage.query.filter_by(listing_id=c.listing_id).order_by(ListingImage.created_at.asc()).first()
+
+        result.append({
+            "id": c.id,
+            "listing_id": c.listing_id,
+            "listing_title": listing.title if listing else "Deleted",
+            "listing_image": first_img.image_url if first_img else None,
+            "other_user_name": other_user.display_name or "User" if other_user else "User",
+            "other_user_avatar": other_user.avatar_url if other_user else None,
+            "last_message": last_msg.body if last_msg else None,
+            "last_message_at": last_msg.created_at.isoformat() if last_msg else c.created_at.isoformat(),
+            "buyer_id": c.buyer_id,
+            "seller_id": c.seller_id,
+            "created_at": c.created_at.isoformat()
+        })
+
+    return jsonify({"conversations": result}), 200
 
 @messages_bp.get("/<conversation_id>")
 @login_required
@@ -54,13 +73,21 @@ def get_messages(conversation_id):
     if current_user.id not in [c.buyer_id, c.seller_id]:
         return jsonify({"error": "Forbidden"}), 403
 
+    other_id = c.seller_id if c.buyer_id == current_user.id else c.buyer_id
+    other_user = db.session.get(User, other_id)
+    listing = db.session.get(Listing, c.listing_id)
+
     msgs = Message.query.filter_by(conversation_id=conversation_id).order_by(Message.created_at.asc()).all()
-    return jsonify({"messages": [{
-        "id": m.id,
-        "sender_id": m.sender_id,
-        "body": m.body,
-        "created_at": m.created_at.isoformat()
-    } for m in msgs]}), 200
+    return jsonify({
+        "listing_title": listing.title if listing else "Deleted",
+        "other_user_name": other_user.display_name or "User" if other_user else "User",
+        "messages": [{
+            "id": m.id,
+            "sender_id": m.sender_id,
+            "body": m.body,
+            "created_at": m.created_at.isoformat()
+        } for m in msgs]
+    }), 200
 
 @messages_bp.post("/<conversation_id>")
 @login_required

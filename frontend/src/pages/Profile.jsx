@@ -3,18 +3,24 @@ import { Link, useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar.jsx";
 import Card from "../components/Card.jsx";
 import Button from "../components/Button.jsx";
+import { IconPerson, IconCamera } from "../components/Icons.jsx";
 import { api } from "../api.js";
+
+function money(cents){
+  const dollars = cents / 100;
+  return dollars % 1 === 0 ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+}
 
 export default function Profile({ me, notify, refreshMe }){
   const nav = useNavigate();
-  const [status, setStatus] = useState(null);
+  const [myListings, setMyListings] = useState([]);
 
   useEffect(() => {
+    if (!me.authed) return;
     (async () => {
-      if (!me.authed) return;
       try{
-        const s = await api.billingStatus();
-        setStatus(s);
+        const res = await api.myListings();
+        setMyListings(res.listings || []);
       }catch(err){ notify(err.message); }
     })();
   }, [me.authed]);
@@ -38,7 +44,7 @@ export default function Profile({ me, notify, refreshMe }){
       const next = !me.user.is_pro;
       await api.setPro(next);
       await refreshMe();
-      notify(next ? "Pro enabled (mock)" : "Pro disabled (mock)");
+      notify(next ? "Pro enabled" : "Pro disabled");
     }catch(err){ notify(err.message); }
   };
 
@@ -56,35 +62,111 @@ export default function Profile({ me, notify, refreshMe }){
       <TopBar title="Profile" />
       <div style={{height:12}}/>
 
+      {/* User info card */}
       <Card>
-        <div style={{fontWeight:950, fontSize:18}}>
-          {me.user.display_name || "User"}
+        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+          <div style={{
+            width:60, height:60, borderRadius:"50%", overflow:"hidden",
+            background:"var(--panel2)", display:"flex", alignItems:"center", justifyContent:"center",
+            flexShrink:0, border:"2px solid var(--border)",
+          }}>
+            {me.user.avatar_url ? (
+              <img src={me.user.avatar_url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+            ) : (
+              <IconPerson size={28} color="var(--muted)" />
+            )}
+          </div>
+
+          <div>
+            <div style={{ fontWeight:800, fontSize:18 }}>{me.user.display_name || "User"}</div>
+            <div className="muted" style={{ fontSize:13, marginTop:2 }}>{me.user.email}</div>
+            <div style={{ marginTop:6 }}>
+              {me.user.is_pro
+                ? <span className="badgePro">PRO</span>
+                : <span className="pill" style={{ fontSize:11 }}>Free</span>
+              }
+            </div>
+          </div>
         </div>
-        <div className="muted" style={{marginTop:6}}>{me.user.email}</div>
+      </Card>
 
-        <div style={{height:12}}/>
-        {me.user.is_pro ? <div className="badgePro">PRO - No ads</div> : <div className="pill">Free - Ads may appear</div>}
-
-        <div style={{height:12}}/>
-        <div className="row">
-          <Link to="/observing" className="pill">Observing</Link>
+      {/* Quick links */}
+      <div style={{ display:"flex", gap:10, marginTop:12 }}>
+        <Link to="/observing" style={{ flex:1, textDecoration:"none" }}>
+          <div className="panel" style={{ padding:"14px 16px", borderRadius:14, textAlign:"center" }}>
+            <div style={{ fontWeight:700, fontSize:14 }}>Observing</div>
+          </div>
+        </Link>
+        <div onClick={togglePro} style={{ flex:1, cursor:"pointer" }}>
+          <div className="panel" style={{ padding:"14px 16px", borderRadius:14, textAlign:"center" }}>
+            <div style={{ fontWeight:700, fontSize:14 }}>
+              {me.user.is_pro ? "Cancel Pro" : "Go Pro"}
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div style={{height:12}}/>
-        <Button onClick={togglePro}>
-          {me.user.is_pro ? "Disable Pro (mock)" : "Enable Pro (mock)"}
-        </Button>
-        <div style={{height:10}}/>
+      {/* My Listings */}
+      <div style={{ marginTop:16 }}>
+        <div className="h2" style={{ marginBottom:10 }}>My Listings</div>
+        {myListings.length === 0 ? (
+          <Card>
+            <div className="muted" style={{ textAlign:"center" }}>
+              You haven't posted anything yet.
+            </div>
+            <div style={{ height:10 }} />
+            <Link to="/post"><Button>Post Your First Item</Button></Link>
+          </Card>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+            {myListings.map(l => (
+              <Link key={l.id} to={`/listing/${l.id}`} style={{ textDecoration:"none", color:"inherit" }}>
+                <div className="panel" style={{
+                  display:"flex", gap:12, padding:12, alignItems:"center",
+                  borderRadius:14,
+                }}>
+                  <div style={{
+                    width:52, height:52, borderRadius:10, overflow:"hidden",
+                    flexShrink:0, background:"var(--panel2)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    {l.images?.length > 0 ? (
+                      <img src={`${api.base}${l.images[0]}`} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                    ) : (
+                      <IconCamera size={22} color="var(--muted)" />
+                    )}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontWeight:700, fontSize:14, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                      {l.title}
+                    </div>
+                    <div style={{ marginTop:4, display:"flex", alignItems:"center", gap:8 }}>
+                      <span style={{ fontWeight:800, fontSize:13 }}>{money(l.price_cents)}</span>
+                      {l.is_sold && <span style={{ fontSize:11, color:"var(--cyan)", fontWeight:700 }}>SOLD</span>}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Safety tips */}
+      <Card style={{ marginTop:16 }}>
+        <div className="h2">Safety Tips</div>
+        <div className="muted" style={{ fontSize:13, marginTop:8, lineHeight:1.6 }}>
+          <div>- Meet in a public, well-lit place</div>
+          <div>- Bring a friend when possible</div>
+          <div>- Inspect items before paying</div>
+          <div>- Never share your home address</div>
+        </div>
+      </Card>
+
+      {/* Logout */}
+      <div style={{ marginTop:16, marginBottom:20 }}>
         <Button variant="ghost" onClick={logout}>Logout</Button>
-      </Card>
-
-      <div style={{height:12}}/>
-      <Card>
-        <div className="h2">Safety</div>
-        <div className="muted" style={{fontSize:13, marginTop:8}}>
-          Never share your residence location. Meet in public. Inspect before paying.
-        </div>
-      </Card>
+      </div>
     </>
   );
 }

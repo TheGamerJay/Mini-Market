@@ -8,16 +8,16 @@ import { api } from "../api.js";
 
 export default function Forgot({ notify }){
   const [email, setEmail] = useState("");
-  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setBusy(true);
     try{
-      const res = await api.forgot({ email });
-      setToken(res.reset_token || "");
-      notify("If that email exists, a reset was created.");
+      await api.forgot({ email });
+      setSent(true);
+      notify("If that email exists, a reset link was sent.");
     }catch(err){
       notify(err.message);
     }finally{
@@ -29,23 +29,31 @@ export default function Forgot({ notify }){
     <>
       <AuthHeader title="Forgot Password" />
 
-      <div className="muted" style={{ textAlign:"center", fontSize:14, marginBottom:20, lineHeight:1.5 }}>
-        Enter your email and we'll send you a link to reset your password.
-      </div>
-
-      <form onSubmit={onSubmit} style={{ display:"flex", flexDirection:"column", gap:12 }}>
-        <Input icon={<IconEnvelope size={18} />} placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-        <Button disabled={busy}>{busy ? "Sending..." : "Send Reset Link"}</Button>
-      </form>
-
-      {token && (
-        <div style={{ marginTop:16 }}>
-          <hr className="sep" />
-          <div className="muted" style={{ fontSize:13 }}>
-            Dev token (temporary): copy into Reset page.
+      {sent ? (
+        <>
+          <div style={{ textAlign:"center", marginTop:10 }}>
+            <div style={{ fontSize:48, marginBottom:12 }}>&#9993;</div>
+            <div style={{ fontWeight:700, fontSize:16 }}>Check your email</div>
+            <div className="muted" style={{ fontSize:14, marginTop:8, lineHeight:1.5 }}>
+              We sent a password reset link to <strong>{email}</strong>. Check your inbox and follow the link to reset your password.
+            </div>
           </div>
-          <div className="panel" style={{ padding:10, wordBreak:"break-all", marginTop:8, fontSize:13 }}>{token}</div>
-        </div>
+
+          <div style={{ marginTop:20 }}>
+            <Link to="/reset"><Button>I Have a Reset Code</Button></Link>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="muted" style={{ textAlign:"center", fontSize:14, marginBottom:20, lineHeight:1.5 }}>
+            Enter your email and we'll send you a link to reset your password.
+          </div>
+
+          <form onSubmit={onSubmit} style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            <Input icon={<IconEnvelope size={18} />} placeholder="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+            <Button disabled={busy}>{busy ? "Sending..." : "Send Reset Link"}</Button>
+          </form>
+        </>
       )}
 
       <div className="muted" style={{ textAlign:"center", fontSize:13, marginTop:18 }}>

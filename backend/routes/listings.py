@@ -51,6 +51,13 @@ def _listing_to_dict(l: Listing):
 def uploads(filename):
     return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
 
+@listings_bp.get("/mine")
+@login_required
+def my_listings():
+    rows = Listing.query.filter_by(user_id=current_user.id).order_by(Listing.created_at.desc()).all()
+    return jsonify({"listings": [_listing_to_dict(l) for l in rows]}), 200
+
+
 @listings_bp.get("/search")
 def search():
     q = (request.args.get("q") or "").strip()

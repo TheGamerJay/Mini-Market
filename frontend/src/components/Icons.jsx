@@ -127,6 +127,16 @@ export function IconFacebook({ size = 22 }) {
   );
 }
 
+export function IconSend({ size = 22, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+         stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 2L11 13" />
+      <path d="M22 2L15 22l-4-9-9-4z" />
+    </svg>
+  );
+}
+
 export function IconBag({ size = 22, color = "currentColor" }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
