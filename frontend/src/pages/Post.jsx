@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar.jsx";
 import Card from "../components/Card.jsx";
 import Input from "../components/Input.jsx";
 import Button from "../components/Button.jsx";
+import { IconCamera, IconPlus, IconX } from "../components/Icons.jsx";
 import { api } from "../api.js";
 
 export default function Post({ notify }){
   const nav = useNavigate();
   const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("10");
+  const [price, setPrice] = useState("");
   const [category, setCategory] = useState("electronics");
   const [condition, setCondition] = useState("used");
   const [city, setCity] = useState("");
@@ -17,11 +18,20 @@ export default function Post({ notify }){
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
 
-  const onFilesChange = (e) => {
+  const addFiles = (e) => {
     const picked = Array.from(e.target.files || []);
-    setFiles(picked);
-    setPreviews(picked.map(f => URL.createObjectURL(f)));
+    if (!picked.length) return;
+    setFiles(prev => [...prev, ...picked]);
+    setPreviews(prev => [...prev, ...picked.map(f => URL.createObjectURL(f))]);
+    e.target.value = "";
+  };
+
+  const removeFile = (idx) => {
+    URL.revokeObjectURL(previews[idx]);
+    setFiles(prev => prev.filter((_, i) => i !== idx));
+    setPreviews(prev => prev.filter((_, i) => i !== idx));
   };
 
   const onSubmit = async (e) => {
@@ -62,16 +72,9 @@ export default function Post({ notify }){
       <div style={{height:12}}/>
 
       <Card>
-        <div className="muted" style={{fontSize:13}}>
-          Keep it simple: title, price, photo. 3 taps to post.
-        </div>
-      </Card>
-
-      <div style={{height:12}}/>
-      <Card>
         <form onSubmit={onSubmit} className="col">
-          <Input label="Title" value={title} onChange={e=>setTitle(e.target.value)} />
-          <Input label="Price (USD)" value={price} onChange={e=>setPrice(e.target.value)} />
+          <Input label="Title" placeholder="What are you selling?" value={title} onChange={e=>setTitle(e.target.value)} />
+          <Input label="Price (USD)" placeholder="$0.00" value={price} onChange={e=>setPrice(e.target.value)} />
           <div className="col" style={{gap:4}}>
             <div className="muted" style={{fontSize:13}}>Category</div>
             <select value={category} onChange={e=>setCategory(e.target.value)} style={{
@@ -105,26 +108,47 @@ export default function Post({ notify }){
               <option value="fair">Fair</option>
             </select>
           </div>
-          <Input label="City (optional)" value={city} onChange={e=>setCity(e.target.value)} />
+          <Input label="City (optional)" placeholder="e.g. Miami" value={city} onChange={e=>setCity(e.target.value)} />
 
+          {/* ── Photos ── */}
           <div className="col" style={{gap:8}}>
-            <div className="muted" style={{fontSize:13}}>Photos (jpg/png/webp)</div>
+            <div className="muted" style={{fontSize:13}}>Photos</div>
             <input
+              ref={fileRef}
               type="file"
               multiple
               accept="image/png,image/jpeg,image/jpg,image/webp"
-              onChange={onFilesChange}
+              onChange={addFiles}
+              style={{ display:"none" }}
             />
-            {previews.length > 0 && (
-              <div style={{ display:"flex", gap:8, overflowX:"auto", paddingTop:4 }}>
-                {previews.map((src, i) => (
-                  <img key={i} src={src} alt="" style={{
+            <div style={{ display:"flex", gap:8, overflowX:"auto", paddingTop:4 }}>
+              {previews.map((src, i) => (
+                <div key={i} style={{ position:"relative", flexShrink:0 }}>
+                  <img src={src} alt="" style={{
                     width:72, height:72, objectFit:"cover", borderRadius:10,
-                    flexShrink:0, border:"1px solid var(--border)",
+                    border:"1px solid var(--border)",
                   }} />
-                ))}
-              </div>
-            )}
+                  <button type="button" onClick={() => removeFile(i)} style={{
+                    position:"absolute", top:-6, right:-6,
+                    width:20, height:20, borderRadius:"50%",
+                    background:"var(--red, #e74c3c)", border:"none",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer", padding:0,
+                  }}>
+                    <IconX size={12} color="#fff" />
+                  </button>
+                </div>
+              ))}
+              <button type="button" onClick={() => fileRef.current?.click()} style={{
+                width:72, height:72, borderRadius:10, flexShrink:0,
+                border:"2px dashed var(--border)", background:"none",
+                display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                gap:4, cursor:"pointer", color:"var(--muted)",
+              }}>
+                <IconCamera size={20} />
+                <span style={{ fontSize:10 }}>Add</span>
+              </button>
+            </div>
           </div>
 
           <div className="col" style={{gap:8}}>
@@ -132,7 +156,8 @@ export default function Post({ notify }){
             <textarea
               value={desc}
               onChange={(e)=>setDesc(e.target.value)}
-              rows={5}
+              placeholder="Add details about your item..."
+              rows={4}
               style={{
                 width:"100%",
                 padding:"12px 12px",
