@@ -2,12 +2,21 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../components/Card.jsx";
 import { IconSearch, IconBack, IconCamera, IconEye } from "../components/Icons.jsx";
-import DistanceLabel from "../components/DistanceLabel.jsx";
 import { api } from "../api.js";
 
 function money(cents){
   const dollars = cents / 100;
   return dollars % 1 === 0 ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+}
+
+function timeAgo(iso){
+  if (!iso) return "";
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+  return `${Math.floor(diff/604800)}w ago`;
 }
 
 export default function Search({ notify }){
@@ -84,24 +93,29 @@ export default function Search({ notify }){
             {results.map(l => (
               <Link key={l.id} to={`/listing/${l.id}`}>
                 <Card noPadding>
-                  {l.images?.length > 0 ? (
-                    <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image" />
-                  ) : (
-                    <div className="card-image-placeholder"><IconCamera size={32} /></div>
-                  )}
-                  <div style={{ padding:"10px 12px" }}>
-                    <div style={{ fontWeight:700, fontSize:14, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  <div style={{ position:"relative" }}>
+                    {l.images?.length > 0 ? (
+                      <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image" />
+                    ) : (
+                      <div className="card-image-placeholder"><IconCamera size={28} /></div>
+                    )}
+                    {l.is_sold && (
+                      <div style={{
+                        position:"absolute", top:6, left:6,
+                        background:"var(--red, #e74c3c)", color:"#fff",
+                        fontSize:9, fontWeight:800, padding:"2px 6px",
+                        borderRadius:5, letterSpacing:0.5,
+                      }}>SOLD</div>
+                    )}
+                  </div>
+                  <div style={{ padding:"8px 10px" }}>
+                    <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
                       {l.title}
                     </div>
-                    <div style={{ marginTop:4, fontSize:13 }}>
-                      <span style={{ fontWeight:800 }}>{money(l.price_cents)}</span>
-                      <span className="muted" style={{ marginLeft:6 }}><DistanceLabel listing={l} /></span>
+                    <div style={{ marginTop:2, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                      <span style={{ fontWeight:800, fontSize:12 }}>{money(l.price_cents)}</span>
+                      <span className="muted" style={{ fontSize:10 }}>{timeAgo(l.created_at)}</span>
                     </div>
-                    {l.observing_count > 0 && (
-                      <div style={{ marginTop:4, fontSize:11, color:"var(--cyan)", display:"flex", alignItems:"center", gap:4 }}>
-                        <IconEye size={12} /> {l.observing_count} observing
-                      </div>
-                    )}
                   </div>
                 </Card>
               </Link>

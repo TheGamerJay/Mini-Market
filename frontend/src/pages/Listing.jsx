@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Card from "../components/Card.jsx";
 import Button from "../components/Button.jsx";
-import { IconBack, IconCamera, IconPin, IconEye, IconEnvelope } from "../components/Icons.jsx";
+import Input from "../components/Input.jsx";
+import { IconBack, IconCamera, IconPin, IconEye, IconEnvelope, IconChevronRight } from "../components/Icons.jsx";
 import ListingMap from "../components/ListingMap.jsx";
 import DistanceLabel from "../components/DistanceLabel.jsx";
 import { api } from "../api.js";
@@ -19,6 +20,11 @@ export default function Listing({ me, notify }){
   const [warning, setWarning] = useState([]);
   const [busy, setBusy] = useState(true);
   const [observing, setObserving] = useState(false);
+  const [imgIdx, setImgIdx] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editDesc, setEditDesc] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -54,12 +60,44 @@ export default function Listing({ me, notify }){
     }catch(err){ notify(err.message); }
   };
 
+  const shareListing = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try { await navigator.share({ title: listing.title, url }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(url);
+      notify("Link copied!");
+    }
+  };
+
+  const startEditing = () => {
+    setEditTitle(listing.title);
+    setEditPrice(String((listing.price_cents / 100)));
+    setEditDesc(listing.description || "");
+    setEditing(true);
+  };
+
+  const saveEdit = async () => {
+    const price_cents = Math.round(parseFloat((editPrice || "0").replace(/[^0-9.]/g, "")) * 100);
+    if (!editTitle.trim()) { notify("Title is required"); return; }
+    if (!price_cents || price_cents <= 0) { notify("Enter a valid price"); return; }
+    try {
+      await api.updateListing(listing.id, { title: editTitle, price_cents, description: editDesc });
+      setListing(prev => ({ ...prev, title: editTitle, price_cents, description: editDesc }));
+      setEditing(false);
+      notify("Listing updated.");
+    } catch(err) { notify(err.message); }
+  };
+
   if (busy) return <Card style={{ marginTop:20 }}><div className="muted">Loading...</div></Card>;
   if (!listing) return <Card style={{ marginTop:20 }}><div className="muted">Not found.</div></Card>;
 
+  const images = listing.images || [];
+  const isOwner = me?.authed && me.user?.id === listing.user_id;
+
   return (
     <>
-      {/* ── Hero image with back button ── */}
+      {/* ── Hero image gallery with back button ── */}
       <div style={{ position:"relative", margin:"-18px -16px 0", overflow:"hidden" }}>
         <button onClick={goBack} style={{
           position:"absolute", top:16, left:16, zIndex:2,
@@ -70,9 +108,63 @@ export default function Listing({ me, notify }){
           <IconBack size={20} color="#fff" />
         </button>
 
-        {listing.images?.length > 0 ? (
-          <img src={`${api.base}${listing.images[0]}`} alt={listing.title}
-               style={{ width:"100%", height:280, objectFit:"cover", display:"block" }} />
+        {/* Share button */}
+        <button onClick={shareListing} style={{
+          position:"absolute", top:16, right:16, zIndex:2,
+          background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
+          width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
+          cursor:"pointer",
+        }}>
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+            <path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/>
+          </svg>
+        </button>
+
+        {images.length > 0 ? (
+          <>
+            <img src={`${api.base}${images[imgIdx]}`} alt={listing.title}
+                 style={{ width:"100%", height:280, objectFit:"cover", display:"block" }} />
+
+            {/* Nav arrows */}
+            {images.length > 1 && (
+              <>
+                {imgIdx > 0 && (
+                  <button onClick={() => setImgIdx(i => i-1)} style={{
+                    position:"absolute", top:"50%", left:8, transform:"translateY(-50%)",
+                    background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
+                    width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer",
+                  }}>
+                    <IconBack size={16} color="#fff" />
+                  </button>
+                )}
+                {imgIdx < images.length - 1 && (
+                  <button onClick={() => setImgIdx(i => i+1)} style={{
+                    position:"absolute", top:"50%", right:8, transform:"translateY(-50%)",
+                    background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
+                    width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center",
+                    cursor:"pointer",
+                  }}>
+                    <IconChevronRight size={16} color="#fff" />
+                  </button>
+                )}
+
+                {/* Dot indicators */}
+                <div style={{
+                  position:"absolute", bottom:10, left:"50%", transform:"translateX(-50%)",
+                  display:"flex", gap:6,
+                }}>
+                  {images.map((_, i) => (
+                    <div key={i} onClick={() => setImgIdx(i)} style={{
+                      width:7, height:7, borderRadius:"50%", cursor:"pointer",
+                      background: i === imgIdx ? "#fff" : "rgba(255,255,255,.45)",
+                    }} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         ) : (
           <div style={{
             width:"100%", height:280, background:"var(--panel2)",
@@ -83,18 +175,40 @@ export default function Listing({ me, notify }){
         )}
       </div>
 
-      {/* ── Title + Price ── */}
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:16 }}>
-        <div style={{ fontWeight:800, fontSize:20 }}>{listing.title}</div>
-        <div style={{ fontWeight:800, fontSize:20, color:"var(--cyan)" }}>{money(listing.price_cents)}</div>
-      </div>
+      {/* ── Edit mode ── */}
+      {editing ? (
+        <div style={{ marginTop:16 }} className="col">
+          <Input label="Title" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
+          <Input label="Price (USD)" value={editPrice} onChange={e => setEditPrice(e.target.value)} />
+          <div className="col" style={{ gap:8 }}>
+            <div className="muted" style={{ fontSize:13 }}>Description</div>
+            <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4} style={{
+              width:"100%", padding:"12px", borderRadius:14,
+              border:"1px solid var(--border)", background:"#1a1f2b",
+              color:"var(--text)", outline:"none", resize:"vertical",
+            }} />
+          </div>
+          <div style={{ display:"flex", gap:10 }}>
+            <Button onClick={saveEdit} style={{ flex:1 }}>Save</Button>
+            <Button variant="ghost" onClick={() => setEditing(false)} style={{ flex:1 }}>Cancel</Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* ── Title + Price ── */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:16 }}>
+            <div style={{ fontWeight:800, fontSize:20 }}>{listing.title}</div>
+            <div style={{ fontWeight:800, fontSize:20, color:"var(--cyan)" }}>{money(listing.price_cents)}</div>
+          </div>
 
-      {/* ── Condition ── */}
-      <div className="muted" style={{ fontSize:14, marginTop:4 }}>{listing.condition}</div>
+          {/* ── Condition ── */}
+          <div className="muted" style={{ fontSize:14, marginTop:4 }}>{listing.condition}</div>
 
-      {/* ── Description ── */}
-      {listing.description && (
-        <div style={{ marginTop:10, lineHeight:1.5, fontSize:14 }}>{listing.description}</div>
+          {/* ── Description ── */}
+          {listing.description && (
+            <div style={{ marginTop:10, lineHeight:1.5, fontSize:14 }}>{listing.description}</div>
+          )}
+        </>
       )}
 
       {/* ── Area + Distance ── */}
@@ -125,8 +239,13 @@ export default function Listing({ me, notify }){
 
       {/* ── Action buttons ── */}
       <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:10 }}>
-        {me?.authed && me.user?.id === listing.user_id ? (
+        {isOwner ? (
           <>
+            {!editing && (
+              <Button variant="ghost" onClick={startEditing}>
+                Edit Listing
+              </Button>
+            )}
             <Button
               onClick={async () => {
                 try {

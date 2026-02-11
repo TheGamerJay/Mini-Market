@@ -28,6 +28,7 @@ function RequireAuth({ authed, loading, children }){
 export default function App(){
   const [me, setMe] = useState({ loading:true, authed:false, user:null });
   const [toast, setToast] = useState("");
+  const [unreadChats, setUnreadChats] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -39,6 +40,20 @@ export default function App(){
       }
     })();
   }, []);
+
+  useEffect(() => {
+    if (!me.authed) return;
+    const check = async () => {
+      try {
+        const res = await api.conversations();
+        const unread = (res.conversations || []).filter(c => c.unread_count > 0).length;
+        setUnreadChats(unread);
+      } catch {}
+    };
+    check();
+    const timer = setInterval(check, 30000);
+    return () => clearInterval(timer);
+  }, [me.authed]);
 
   const notify = (t) => {
     setToast(t);
@@ -113,7 +128,7 @@ export default function App(){
         </Routes>
       </div>
 
-      {!hideNav && <BottomNav />}
+      {!hideNav && <BottomNav unreadChats={unreadChats} />}
       <Toast text={toast} />
     </>
   );
