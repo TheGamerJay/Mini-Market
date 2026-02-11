@@ -80,7 +80,7 @@ export default function Profile({ me, notify, refreshMe }){
           <div
             onClick={() => fileRef.current?.click()}
             style={{
-              width:68, height:68, borderRadius:"50%", overflow:"hidden",
+              width:68, height:68, borderRadius:14, overflow:"hidden",
               background:"var(--panel2)", display:"flex", alignItems:"center", justifyContent:"center",
               flexShrink:0, cursor:"pointer", position:"relative",
             }}
