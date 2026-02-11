@@ -82,7 +82,7 @@ export default function Profile({ me, notify, refreshMe }){
             style={{
               width:68, height:68, borderRadius:"50%", overflow:"hidden",
               background:"var(--panel2)", display:"flex", alignItems:"center", justifyContent:"center",
-              flexShrink:0, border:"2px solid var(--border)", cursor:"pointer", position:"relative",
+              flexShrink:0, cursor:"pointer", position:"relative",
             }}
           >
             {me.user.avatar_url ? (
