@@ -19,6 +19,8 @@ class User(UserMixin, db.Model):
     display_name = db.Column(db.String(120))
     google_sub = db.Column(db.String(255), unique=True, nullable=True, index=True)
     avatar_url = db.Column(db.Text, nullable=True)
+    avatar_data = db.Column(db.LargeBinary, nullable=True)
+    avatar_mime = db.Column(db.String(32), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
     rating_avg = db.Column(db.Numeric, default=0)

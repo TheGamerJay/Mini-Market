@@ -1,7 +1,7 @@
 import os
 import uuid
 
-from flask import Blueprint, request, jsonify, current_app, send_from_directory
+from flask import Blueprint, request, jsonify, current_app, send_from_directory, Response
 from flask_login import login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
@@ -76,23 +76,24 @@ def upload_avatar():
 
     f = request.files["file"]
     ext = os.path.splitext(f.filename)[1].lower()
-    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+    mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
+    if ext not in mime_map:
         return jsonify({"error": "Only jpg/jpeg/png/webp allowed"}), 400
 
-    folder = current_app.config["UPLOAD_FOLDER"]
-    os.makedirs(folder, exist_ok=True)
-    name = f"avatar_{uuid.uuid4().hex}{ext}"
-    f.save(os.path.join(folder, name))
-
-    current_user.avatar_url = f"/api/auth/avatars/{name}"
+    current_user.avatar_data = f.read()
+    current_user.avatar_mime = mime_map[ext]
+    current_user.avatar_url = f"/api/auth/avatars/{current_user.id}"
     db.session.commit()
 
     return jsonify({"ok": True, "avatar_url": current_user.avatar_url}), 200
 
 
-@auth_bp.get("/avatars/<path:filename>")
-def serve_avatar(filename):
-    return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
+@auth_bp.get("/avatars/<path:user_id>")
+def serve_avatar(user_id):
+    u = db.session.get(User, user_id)
+    if not u or not u.avatar_data:
+        return jsonify({"error": "Not found"}), 404
+    return Response(u.avatar_data, mimetype=u.avatar_mime, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @auth_bp.post("/forgot")
