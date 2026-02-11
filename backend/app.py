@@ -40,6 +40,14 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        # Add columns that create_all() won't add to existing tables
+        from sqlalchemy import text, inspect
+        insp = inspect(db.engine)
+        cols = {c["name"] for c in insp.get_columns("users")}
+        if "avatar_data" not in cols:
+            db.session.execute(text("ALTER TABLE users ADD COLUMN avatar_data BYTEA"))
+            db.session.execute(text("ALTER TABLE users ADD COLUMN avatar_mime VARCHAR(32)"))
+            db.session.commit()
 
     @login_manager.user_loader
     def load_user(user_id):
