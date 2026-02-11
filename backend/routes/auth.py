@@ -1,4 +1,7 @@
-from flask import Blueprint, request, jsonify, current_app
+import os
+import uuid
+
+from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
@@ -64,6 +67,33 @@ def login():
 def logout():
     logout_user()
     return jsonify({"ok": True}), 200
+
+@auth_bp.post("/avatar")
+@login_required
+def upload_avatar():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    f = request.files["file"]
+    ext = os.path.splitext(f.filename)[1].lower()
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        return jsonify({"error": "Only jpg/jpeg/png/webp allowed"}), 400
+
+    folder = current_app.config["UPLOAD_FOLDER"]
+    os.makedirs(folder, exist_ok=True)
+    name = f"avatar_{uuid.uuid4().hex}{ext}"
+    f.save(os.path.join(folder, name))
+
+    current_user.avatar_url = f"/api/auth/avatars/{name}"
+    db.session.commit()
+
+    return jsonify({"ok": True, "avatar_url": current_user.avatar_url}), 200
+
+
+@auth_bp.get("/avatars/<path:filename>")
+def serve_avatar(filename):
+    return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
+
 
 @auth_bp.post("/forgot")
 def forgot():

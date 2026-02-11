@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar.jsx";
 import Card from "../components/Card.jsx";
@@ -14,6 +14,17 @@ function money(cents){
 export default function Profile({ me, notify, refreshMe }){
   const nav = useNavigate();
   const [myListings, setMyListings] = useState([]);
+  const fileRef = useRef(null);
+
+  const onAvatarPick = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await api.uploadAvatar(file);
+      await refreshMe();
+      notify("Profile photo updated!");
+    } catch(err) { notify(err.message); }
+  };
 
   useEffect(() => {
     if (!me.authed) return;
@@ -65,16 +76,28 @@ export default function Profile({ me, notify, refreshMe }){
       {/* User info card */}
       <Card>
         <div style={{ display:"flex", alignItems:"center", gap:14 }}>
-          <div style={{
-            width:60, height:60, borderRadius:"50%", overflow:"hidden",
-            background:"var(--panel2)", display:"flex", alignItems:"center", justifyContent:"center",
-            flexShrink:0, border:"2px solid var(--border)",
-          }}>
+          <input type="file" accept="image/*" ref={fileRef} onChange={onAvatarPick} style={{ display:"none" }} />
+          <div
+            onClick={() => fileRef.current?.click()}
+            style={{
+              width:68, height:68, borderRadius:"50%", overflow:"hidden",
+              background:"var(--panel2)", display:"flex", alignItems:"center", justifyContent:"center",
+              flexShrink:0, border:"2px solid var(--border)", cursor:"pointer", position:"relative",
+            }}
+          >
             {me.user.avatar_url ? (
-              <img src={me.user.avatar_url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+              <img src={me.user.avatar_url.startsWith("/") ? `${api.base}${me.user.avatar_url}` : me.user.avatar_url} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
             ) : (
-              <IconPerson size={28} color="var(--muted)" />
+              <IconPerson size={30} color="var(--muted)" />
             )}
+            <div style={{
+              position:"absolute", bottom:0, right:0,
+              width:22, height:22, borderRadius:"50%",
+              background:"var(--cyan)", display:"flex", alignItems:"center", justifyContent:"center",
+              border:"2px solid var(--bg)",
+            }}>
+              <IconCamera size={12} color="#000" />
+            </div>
           </div>
 
           <div>

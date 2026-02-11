@@ -26,6 +26,11 @@ export const api = {
   signup: (payload) => req("/api/auth/signup", { method:"POST", body: payload }),
   login: (payload) => req("/api/auth/login", { method:"POST", body: payload }),
   logout: () => req("/api/auth/logout", { method:"POST" }),
+  uploadAvatar: (file) => {
+    const form = new FormData();
+    form.append("file", file);
+    return req("/api/auth/avatar", { method:"POST", body: form, isForm:true, headers:{} });
+  },
   forgot: (payload) => req("/api/auth/forgot", { method:"POST", body: payload }),
   reset: (payload) => req("/api/auth/reset", { method:"POST", body: payload }),
 
