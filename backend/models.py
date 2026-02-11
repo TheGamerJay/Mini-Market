@@ -18,7 +18,6 @@ class User(UserMixin, db.Model):
 
     display_name = db.Column(db.String(120))
     google_sub = db.Column(db.String(255), unique=True, nullable=True, index=True)
-    facebook_id = db.Column(db.String(255), unique=True, nullable=True, index=True)
     avatar_url = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 

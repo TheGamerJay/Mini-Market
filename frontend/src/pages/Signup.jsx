@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import AuthHeader from "../components/AuthHeader.jsx";
 import Input from "../components/Input.jsx";
 import Button from "../components/Button.jsx";
-import { IconPerson, IconEnvelope, IconLock, IconGoogle, IconFacebook } from "../components/Icons.jsx";
+import { IconPerson, IconEnvelope, IconLock, IconGoogle } from "../components/Icons.jsx";
 import { api } from "../api.js";
 
 export default function Signup({ notify }){
@@ -35,9 +35,6 @@ export default function Signup({ notify }){
       <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:6 }}>
         <button className="btn-social" type="button" onClick={() => { window.location.href = `${api.base}/api/auth/google/start`; }}>
           <IconGoogle size={20} /> Sign up with Google
-        </button>
-        <button className="btn-social" type="button" onClick={() => { window.location.href = `${api.base}/api/auth/facebook/start`; }}>
-          <IconFacebook size={20} /> Sign up with Facebook
         </button>
       </div>
 
