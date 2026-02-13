@@ -43,10 +43,21 @@ def create_app():
         # Add columns that create_all() won't add to existing tables
         from sqlalchemy import text, inspect
         insp = inspect(db.engine)
-        cols = {c["name"] for c in insp.get_columns("users")}
-        if "avatar_data" not in cols:
-            db.session.execute(text("ALTER TABLE users ADD COLUMN avatar_data BYTEA"))
-            db.session.execute(text("ALTER TABLE users ADD COLUMN avatar_mime VARCHAR(32)"))
+        def _add_col(table, col, col_type):
+            t_cols = {c["name"] for c in insp.get_columns(table)}
+            if col not in t_cols:
+                db.session.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                return True
+            return False
+
+        changed = False
+        changed |= _add_col("users", "avatar_data", "BYTEA")
+        changed |= _add_col("users", "avatar_mime", "VARCHAR(32)")
+        changed |= _add_col("users", "rating_avg", "NUMERIC DEFAULT 0")
+        changed |= _add_col("users", "rating_count", "INTEGER DEFAULT 0")
+        changed |= _add_col("users", "is_pro", "BOOLEAN DEFAULT FALSE")
+        changed |= _add_col("listings", "buyer_id", "VARCHAR(36) REFERENCES users(id)")
+        if changed:
             db.session.commit()
 
     @login_manager.user_loader
