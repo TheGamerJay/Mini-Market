@@ -44,6 +44,10 @@ export default function Listing({ me, notify }){
   const [showOffer, setShowOffer] = useState(false);
   const [boostDurations, setBoostDurations] = useState([]);
   const [showBoost, setShowBoost] = useState(false);
+  const [canReview, setCanReview] = useState(false);
+  const [existingReview, setExistingReview] = useState(null);
+  const [reviewComment, setReviewComment] = useState("");
+  const [showReview, setShowReview] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -66,6 +70,10 @@ export default function Listing({ me, notify }){
     api.similarListings(id).then(r => setSimilar(r.listings || [])).catch(() => {});
     api.priceHistory(id).then(r => setPriceHist(r.history || [])).catch(() => {});
     api.listingOffers(id).then(r => setOffers(r.offers || [])).catch(() => {});
+    api.canReview(id).then(r => {
+      setCanReview(r.can_review);
+      if (r.existing_review) setExistingReview(r.existing_review);
+    }).catch(() => {});
 
     // Track recently viewed
     try {
@@ -149,6 +157,17 @@ export default function Listing({ me, notify }){
       const res = await api.respondOffer(offerId, payload);
       setOffers(prev => prev.map(o => o.id === offerId ? res.offer : o));
       notify(action === "accept" ? "Offer accepted!" : action === "decline" ? "Offer declined." : "Counter sent!");
+    } catch(err) { notify(err.message); }
+  };
+
+  const submitReview = async (isPositive) => {
+    try {
+      const res = await api.createReview({ listing_id: id, is_positive: isPositive, comment: reviewComment || null });
+      setExistingReview(res.review);
+      setCanReview(false);
+      setShowReview(false);
+      setReviewComment("");
+      notify(isPositive ? "Positive feedback left!" : "Negative feedback left.");
     } catch(err) { notify(err.message); }
   };
 
@@ -359,6 +378,73 @@ export default function Listing({ me, notify }){
         }}>
           This item has been sold
         </div>
+      )}
+
+      {/* ── Review / Feedback ── */}
+      {listing.is_sold && !isOwner && (canReview || existingReview) && (
+        <Card style={{ marginTop:14 }}>
+          {existingReview ? (
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>Your Feedback</div>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ fontSize:22 }}>{existingReview.is_positive ? "\ud83d\udc4d" : "\ud83d\udc4e"}</span>
+                <span style={{ fontSize:13, fontWeight:600, color: existingReview.is_positive ? "var(--green, #2ecc71)" : "var(--red, #e74c3c)" }}>
+                  {existingReview.is_positive ? "Positive" : "Negative"}
+                </span>
+              </div>
+              {existingReview.comment && (
+                <div className="muted" style={{ fontSize:12, marginTop:6 }}>"{existingReview.comment}"</div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>Leave Feedback for Seller</div>
+              {!showReview ? (
+                <button onClick={() => setShowReview(true)} style={{
+                  width:"100%", padding:"10px 0", borderRadius:10, fontSize:13, fontWeight:700,
+                  cursor:"pointer", fontFamily:"inherit",
+                  background:"linear-gradient(135deg, rgba(62,224,255,.12), rgba(164,122,255,.12))",
+                  border:"1px solid var(--border)", color:"var(--cyan)",
+                }}>
+                  Rate this seller
+                </button>
+              ) : (
+                <>
+                  <textarea
+                    value={reviewComment}
+                    onChange={e => setReviewComment(e.target.value)}
+                    placeholder="Optional comment..."
+                    rows={2}
+                    style={{
+                      width:"100%", padding:"10px 12px", borderRadius:10, marginBottom:10,
+                      background:"var(--panel2)", border:"1px solid var(--border)",
+                      color:"var(--text)", fontSize:13, fontFamily:"inherit",
+                      resize:"vertical", boxSizing:"border-box",
+                    }}
+                  />
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button onClick={() => submitReview(true)} style={{
+                      flex:1, padding:"12px 0", borderRadius:10, fontSize:14, fontWeight:800,
+                      cursor:"pointer", fontFamily:"inherit",
+                      background:"rgba(46,204,113,.15)", border:"1.5px solid var(--green, #2ecc71)",
+                      color:"var(--green, #2ecc71)",
+                    }}>
+                      👍 Positive
+                    </button>
+                    <button onClick={() => submitReview(false)} style={{
+                      flex:1, padding:"12px 0", borderRadius:10, fontSize:14, fontWeight:800,
+                      cursor:"pointer", fontFamily:"inherit",
+                      background:"rgba(231,76,60,.15)", border:"1.5px solid var(--red, #e74c3c)",
+                      color:"var(--red, #e74c3c)",
+                    }}>
+                      👎 Negative
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </Card>
       )}
 
       {/* ── Action buttons ── */}

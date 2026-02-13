@@ -8,18 +8,35 @@ from models import Boost, BoostImpression, Listing
 
 boosts_bp = Blueprint("boosts", __name__)
 
+# Round-robin offset — rotates which group of 10 gets shown each request
+_rotation_offset = 0
+
 @boosts_bp.get("/featured")
 def featured():
+    global _rotation_offset
     now = datetime.utcnow()
-    active = Boost.query.filter(Boost.status == "active", Boost.ends_at > now).all()
+    active = Boost.query.filter(Boost.status == "active", Boost.ends_at > now).order_by(Boost.created_at.asc()).all()
     if not active:
         return jsonify({"featured_listing_ids": []}), 200
 
-    sample = random.sample(active, k=min(5, len(active)))
-    listing_ids = [b.listing_id for b in sample]
+    # Rotate through all active boosts in groups of 10
+    total = len(active)
+    batch_size = 10
+    start = _rotation_offset % total
+    _rotation_offset += batch_size
+
+    # Wrap around to get a full batch
+    if start + batch_size <= total:
+        batch = active[start:start + batch_size]
+    else:
+        batch = active[start:] + active[:batch_size - (total - start)]
+
+    # Shuffle within the batch for variety
+    random.shuffle(batch)
+    listing_ids = [b.listing_id for b in batch]
 
     viewer_id = current_user.id if current_user.is_authenticated else None
-    for b in sample:
+    for b in batch:
         db.session.add(BoostImpression(boost_id=b.id, viewer_user_id=viewer_id))
     db.session.commit()
 

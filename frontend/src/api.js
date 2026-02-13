@@ -87,4 +87,8 @@ export const api = {
   userProfile: (userId) => req(`/api/users/${userId}/profile`),
   toggleBlock: (userId) => req(`/api/users/${userId}/block`, { method:"POST" }),
   reportUser: (userId, payload) => req(`/api/users/${userId}/report`, { method:"POST", body: payload }),
+
+  createReview: (payload) => req("/api/reviews", { method:"POST", body: payload }),
+  sellerReviews: (sellerId) => req(`/api/reviews/seller/${sellerId}`),
+  canReview: (listingId) => req(`/api/reviews/listing/${listingId}/can-review`),
 };

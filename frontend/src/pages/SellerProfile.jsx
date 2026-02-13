@@ -26,6 +26,8 @@ export default function SellerProfile({ me, notify }){
   const [blocked, setBlocked] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
+  const [reviews, setReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +36,11 @@ export default function SellerProfile({ me, notify }){
         setProfile(res.profile);
         setListings(res.listings || []);
         setBlocked(res.profile.is_blocked);
+        // Load reviews
+        api.sellerReviews(id).then(r => {
+          setReviews(r.reviews || []);
+          setReviewSummary(r.summary || null);
+        }).catch(() => {});
       } catch(err) { notify(err.message); }
       finally { setBusy(false); }
     })();
@@ -102,7 +109,39 @@ export default function SellerProfile({ me, notify }){
             <div style={{ fontWeight:800, fontSize:18 }}>{profile.sold_count}</div>
             <div className="muted" style={{ fontSize:11 }}>Sold</div>
           </div>
+          {reviewSummary && reviewSummary.total > 0 && (
+            <div style={{ textAlign:"center" }}>
+              <div style={{ fontWeight:800, fontSize:18, color: reviewSummary.score >= 50 ? "var(--green, #2ecc71)" : "var(--red, #e74c3c)" }}>
+                {reviewSummary.score}%
+              </div>
+              <div className="muted" style={{ fontSize:11 }}>Positive</div>
+            </div>
+          )}
         </div>
+
+        {/* Rating bar */}
+        {reviewSummary && reviewSummary.total > 0 && (
+          <div style={{ marginTop:12 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, marginBottom:4 }}>
+              <span style={{ color:"var(--green, #2ecc71)", fontWeight:700 }}>👍 {reviewSummary.positive}</span>
+              <span className="muted">{reviewSummary.total} reviews</span>
+              <span style={{ color:"var(--red, #e74c3c)", fontWeight:700 }}>👎 {reviewSummary.negative}</span>
+            </div>
+            <div style={{
+              height:6, borderRadius:3, background:"var(--panel2)", overflow:"hidden",
+            }}>
+              <div style={{
+                height:"100%", borderRadius:3,
+                width: `${reviewSummary.score}%`,
+                background: reviewSummary.score >= 70
+                  ? "var(--green, #2ecc71)"
+                  : reviewSummary.score >= 40
+                    ? "var(--cyan, #3ee0ff)"
+                    : "var(--red, #e74c3c)",
+              }} />
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Block / Report (not for own profile) */}
@@ -184,6 +223,46 @@ export default function SellerProfile({ me, notify }){
           </div>
         )}
       </div>
+
+      {/* Reviews */}
+      {reviews.length > 0 && (
+        <div style={{ marginTop:16 }}>
+          <div className="h2" style={{ marginBottom:10 }}>
+            Reviews ({reviews.length})
+          </div>
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {reviews.map(r => (
+              <Card key={r.id}>
+                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                  <div style={{
+                    width:32, height:32, borderRadius:8, overflow:"hidden",
+                    background:"var(--panel2)", display:"flex", alignItems:"center", justifyContent:"center",
+                    flexShrink:0,
+                  }}>
+                    {r.reviewer_avatar ? (
+                      <img src={r.reviewer_avatar.startsWith("/") ? `${api.base}${r.reviewer_avatar}` : r.reviewer_avatar} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                    ) : (
+                      <IconPerson size={16} color="var(--muted)" />
+                    )}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontWeight:700, fontSize:13 }}>{r.reviewer_name}</span>
+                      <span style={{ fontSize:18 }}>{r.is_positive ? "\ud83d\udc4d" : "\ud83d\udc4e"}</span>
+                    </div>
+                    {r.comment && (
+                      <div className="muted" style={{ fontSize:12, marginTop:2 }}>"{r.comment}"</div>
+                    )}
+                  </div>
+                  <div className="muted" style={{ fontSize:10, flexShrink:0 }}>
+                    {new Date(r.created_at).toLocaleDateString("en-US", { month:"short", day:"numeric" })}
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ height:20 }} />
     </>

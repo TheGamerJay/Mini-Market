@@ -220,6 +220,19 @@ class PriceHistory(db.Model):
     new_cents = db.Column(db.Integer, nullable=False)
     changed_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
+class Review(db.Model):
+    __tablename__ = "reviews"
+
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    reviewer_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    seller_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=False, index=True)
+    is_positive = db.Column(db.Boolean, nullable=False)
+    comment = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (db.UniqueConstraint("reviewer_id", "listing_id", name="uq_review_per_listing"),)
+
 class Ad(db.Model):
     __tablename__ = "ads"
 
