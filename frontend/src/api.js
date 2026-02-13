@@ -36,7 +36,11 @@ export const api = {
 
   search: (params) => req(`/api/listings/search?${new URLSearchParams(params)}`),
   myListings: () => req("/api/listings/mine"),
-  feed: () => req("/api/listings"),
+  feed: (page = 1) => req(`/api/listings?page=${page}&per_page=20`),
+  purchases: () => req("/api/listings/purchases"),
+  renewListing: (id) => req(`/api/listings/${id}/renew`, { method:"POST" }),
+  reorderImages: (id, imageIds) => req(`/api/listings/${id}/images/reorder`, { method:"PUT", body: { image_ids: imageIds } }),
+  onboardingDone: () => req("/api/auth/onboarding-done", { method:"POST" }),
   listing: (id) => req(`/api/listings/${id}`),
   createListing: (payload) => req("/api/listings", { method:"POST", body: payload }),
   updateListing: (id, payload) => req(`/api/listings/${id}`, { method:"PUT", body: payload }),

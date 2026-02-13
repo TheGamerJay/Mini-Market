@@ -9,6 +9,19 @@ const CATEGORIES = [
   "Books", "Sports", "Toys", "Home", "Auto", "Other"
 ];
 
+const CATEGORY_ICONS = {
+  Electronics: "\u{1F4F1}",
+  Clothing: "\u{1F455}",
+  Furniture: "\u{1FA91}",
+  Art: "\u{1F3A8}",
+  Books: "\u{1F4DA}",
+  Sports: "\u26BD",
+  Toys: "\u{1F3AE}",
+  Home: "\u{1F3E0}",
+  Auto: "\u{1F697}",
+  Other: "\u{1F4E6}",
+};
+
 function money(cents){
   const dollars = cents / 100;
   return dollars % 1 === 0 ? `$${dollars}` : `$${dollars.toFixed(2)}`;
@@ -30,23 +43,34 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
   const [ads, setAds] = useState([]);
   const [busy, setBusy] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const nav = useNavigate();
 
-  const loadFeed = async () => {
-    setBusy(true);
+  const loadFeed = async (reset = true) => {
+    if (reset) setBusy(true);
+    else setLoadingMore(true);
+    const p = reset ? 1 : page + 1;
     try{
       const [feed, feat, adRes] = await Promise.all([
-        api.feed(),
-        api.featured(),
-        api.ads()
+        api.feed(p),
+        ...(reset ? [api.featured(), api.ads()] : []),
       ]);
-      setListings(feed.listings || []);
-      setFeaturedIds(feat.featured_listing_ids || []);
-      setAds(adRes.ads || []);
+      if (reset) {
+        setListings(feed.listings || []);
+        setFeaturedIds(feat.featured_listing_ids || []);
+        setAds(adRes.ads || []);
+      } else {
+        setListings(prev => [...prev, ...(feed.listings || [])]);
+      }
+      setPage(p);
+      setHasMore(feed.has_more || false);
     }catch(err){
       notify(err.message);
     }finally{
       setBusy(false);
+      setLoadingMore(false);
     }
   };
 
@@ -94,21 +118,26 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
         </Link>
       </div>
 
-      {/* ── Category chips ── */}
-      <div style={{ display:"flex", gap:8, overflowX:"auto", padding:"12px 0 4px", scrollbarWidth:"none" }}>
-        {CATEGORIES.map(cat => (
+      {/* ── Category grid ── */}
+      <div style={{
+        display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:8,
+        padding:"12px 0 4px",
+      }}>
+        {Object.entries(CATEGORY_ICONS).map(([cat, icon]) => (
           <button
             key={cat}
-            onClick={() => setActiveCategory(cat)}
+            onClick={() => setActiveCategory(activeCategory === cat ? "All" : cat)}
             style={{
-              padding:"6px 14px", borderRadius:20, flexShrink:0,
-              fontSize:13, fontWeight:600, cursor:"pointer",
-              border: activeCategory === cat ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-              background: activeCategory === cat ? "var(--accent)" : "transparent",
-              color: activeCategory === cat ? "#fff" : "var(--text)",
+              display:"flex", flexDirection:"column", alignItems:"center", gap:4,
+              padding:"10px 4px", borderRadius:12, cursor:"pointer",
+              border: activeCategory === cat ? "1.5px solid var(--cyan)" : "1px solid var(--border)",
+              background: activeCategory === cat ? "rgba(62,224,255,.12)" : "var(--panel)",
+              color: activeCategory === cat ? "var(--cyan)" : "var(--text)",
+              fontFamily:"inherit",
             }}
           >
-            {cat}
+            <span style={{ fontSize:22 }}>{icon}</span>
+            <span style={{ fontSize:9, fontWeight:700 }}>{cat}</span>
           </button>
         ))}
       </div>
@@ -150,13 +179,14 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
         </>
       )}
 
-      {/* ── Pull to refresh ── */}
+      {/* ── Refresh ── */}
       <div style={{ display:"flex", justifyContent:"center", padding:"4px 0" }}>
-        <button onClick={loadFeed} disabled={busy} style={{
-          background:"none", border:"none", color:"var(--muted)",
-          fontSize:12, cursor:"pointer", padding:"4px 12px",
+        <button onClick={() => loadFeed(true)} disabled={busy} style={{
+          background:"none", border:"none", color:"var(--cyan)",
+          fontSize:12, fontWeight:700, cursor:"pointer", padding:"4px 12px",
+          fontFamily:"inherit",
         }}>
-          {busy ? "Loading..." : "Tap to refresh"}
+          {busy ? "Loading..." : "\u21BB Refresh"}
         </button>
       </div>
 
@@ -222,6 +252,19 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
           </React.Fragment>
         ))}
       </div>
+
+      {/* ── Load more ── */}
+      {hasMore && (
+        <div style={{ display:"flex", justifyContent:"center", padding:"14px 0" }}>
+          <button onClick={() => loadFeed(false)} disabled={loadingMore} style={{
+            padding:"10px 28px", borderRadius:20, fontSize:13, fontWeight:700,
+            cursor:"pointer", fontFamily:"inherit",
+            background:"var(--panel)", border:"1px solid var(--border)", color:"var(--cyan)",
+          }}>
+            {loadingMore ? "Loading..." : "Load More"}
+          </button>
+        </div>
+      )}
     </>
   );
 }

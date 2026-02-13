@@ -24,6 +24,14 @@ import Terms from "./pages/Terms.jsx";
 import Privacy from "./pages/Privacy.jsx";
 import SellerProfile from "./pages/SellerProfile.jsx";
 import SavedSearches from "./pages/SavedSearches.jsx";
+import Purchases from "./pages/Purchases.jsx";
+import Onboarding from "./components/Onboarding.jsx";
+
+// Apply stored theme on load
+(function(){
+  const t = localStorage.getItem("pm_theme");
+  if (t) document.documentElement.setAttribute("data-theme", t);
+})();
 
 function RequireAuth({ authed, loading, children }){
   const loc = useLocation();
@@ -154,6 +162,11 @@ export default function App(){
               <SavedSearches notify={notify} />
             </RequireAuth>
           }/>
+          <Route path="/purchases" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <Purchases notify={notify} />
+            </RequireAuth>
+          }/>
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
 
@@ -168,6 +181,9 @@ export default function App(){
 
       {!hideNav && <BottomNav unreadChats={unreadChats} />}
       <Toast text={toast} />
+      {me.authed && me.user && !me.user.onboarding_done && (
+        <Onboarding me={me} refreshMe={refreshMe} notify={notify} />
+      )}
     </>
   );
 }

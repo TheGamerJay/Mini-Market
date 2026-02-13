@@ -35,6 +35,7 @@ export default function Listing({ me, notify }){
   const [editTitle, setEditTitle] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editBundle, setEditBundle] = useState("");
 
   // New features state
   const [similar, setSimilar] = useState([]);
@@ -123,6 +124,7 @@ export default function Listing({ me, notify }){
     setEditTitle(listing.title);
     setEditPrice(String((listing.price_cents / 100)));
     setEditDesc(listing.description || "");
+    setEditBundle(listing.bundle_discount_pct ? String(listing.bundle_discount_pct) : "");
     setEditing(true);
   };
 
@@ -130,9 +132,10 @@ export default function Listing({ me, notify }){
     const price_cents = Math.round(parseFloat((editPrice || "0").replace(/[^0-9.]/g, "")) * 100);
     if (!editTitle.trim()) { notify("Title is required"); return; }
     if (!price_cents || price_cents <= 0) { notify("Enter a valid price"); return; }
+    const bundle = editBundle ? parseInt(editBundle) || null : null;
     try {
-      await api.updateListing(listing.id, { title: editTitle, price_cents, description: editDesc });
-      setListing(prev => ({ ...prev, title: editTitle, price_cents, description: editDesc }));
+      await api.updateListing(listing.id, { title: editTitle, price_cents, description: editDesc, bundle_discount_pct: bundle });
+      setListing(prev => ({ ...prev, title: editTitle, price_cents, description: editDesc, bundle_discount_pct: bundle }));
       setEditing(false);
       notify("Listing updated.");
     } catch(err) { notify(err.message); }
@@ -275,10 +278,11 @@ export default function Listing({ me, notify }){
             <div className="muted" style={{ fontSize:13 }}>Description</div>
             <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4} style={{
               width:"100%", padding:"12px", borderRadius:14,
-              border:"1px solid var(--border)", background:"#1a1f2b",
+              border:"1px solid var(--border)", background:"var(--input-bg, #1a1f2b)",
               color:"var(--text)", outline:"none", resize:"vertical",
             }} />
           </div>
+          <Input label="Bundle Discount % (optional)" placeholder="e.g. 10" value={editBundle} onChange={e => setEditBundle(e.target.value)} />
           <div style={{ display:"flex", gap:10 }}>
             <Button onClick={saveEdit} style={{ flex:1 }}>Save</Button>
             <Button variant="ghost" onClick={() => setEditing(false)} style={{ flex:1 }}>Cancel</Button>
@@ -307,6 +311,9 @@ export default function Listing({ me, notify }){
                 )}
               </div>
               <span style={{ fontSize:13, fontWeight:600 }}>{listing.seller_name}</span>
+              {listing.is_verified_seller && (
+                <span title="Verified Seller" style={{ fontSize:14, lineHeight:1 }}>{"\u2705"}</span>
+              )}
               {listing.is_pro_seller && (
                 <span style={{
                   background:"linear-gradient(135deg, rgba(62,224,255,.25), rgba(164,122,255,.22))",
@@ -319,9 +326,18 @@ export default function Listing({ me, notify }){
             </div>
           </Link>
 
-          {/* ── Condition ── */}
-          <div style={{ marginTop:6 }}>
+          {/* ── Condition + Bundle ── */}
+          <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:8 }}>
             <span className="muted" style={{ fontSize:14 }}>{listing.condition}</span>
+            {listing.bundle_discount_pct > 0 && (
+              <span style={{
+                padding:"2px 8px", borderRadius:6, fontSize:10, fontWeight:800,
+                background:"rgba(46,204,113,.15)", border:"1px solid var(--green, #2ecc71)",
+                color:"var(--green, #2ecc71)",
+              }}>
+                {listing.bundle_discount_pct}% off bundles
+              </span>
+            )}
           </div>
 
           {/* ── Description ── */}
@@ -446,6 +462,42 @@ export default function Listing({ me, notify }){
           )}
         </Card>
       )}
+
+      {/* ── Listing Expiry Warning ── */}
+      {isOwner && (() => {
+        const base = listing.renewed_at || listing.created_at;
+        const daysOld = base ? Math.floor((Date.now() - new Date(base).getTime()) / 86400000) : 0;
+        const daysLeft = 30 - daysOld;
+        if (daysLeft > 7) return null;
+        return (
+          <div style={{
+            marginTop:14, padding:"10px 14px", borderRadius:12,
+            background: daysLeft <= 0 ? "rgba(231,76,60,.15)" : "rgba(255,165,0,.12)",
+            border: `1px solid ${daysLeft <= 0 ? "var(--red, #e74c3c)" : "orange"}`,
+            display:"flex", justifyContent:"space-between", alignItems:"center",
+          }}>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color: daysLeft <= 0 ? "var(--red, #e74c3c)" : "orange" }}>
+                {daysLeft <= 0 ? "Listing expired" : `Expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}
+              </div>
+              <div className="muted" style={{ fontSize:11 }}>Renew to keep it visible</div>
+            </div>
+            <button onClick={async () => {
+              try {
+                const res = await api.renewListing(listing.id);
+                setListing(prev => ({ ...prev, renewed_at: res.renewed_at }));
+                notify("Listing renewed for 30 days!");
+              } catch(err) { notify(err.message); }
+            }} style={{
+              padding:"8px 16px", borderRadius:10, fontSize:12, fontWeight:700,
+              cursor:"pointer", fontFamily:"inherit",
+              background:"var(--cyan)", border:"none", color:"#000",
+            }}>
+              Renew
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ── Action buttons ── */}
       <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:10 }}>

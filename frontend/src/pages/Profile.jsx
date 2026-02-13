@@ -14,7 +14,15 @@ function money(cents){
 export default function Profile({ me, notify, refreshMe }){
   const nav = useNavigate();
   const [myListings, setMyListings] = useState([]);
+  const [theme, setTheme] = useState(() => localStorage.getItem("pm_theme") || "dark");
   const fileRef = useRef(null);
+
+  const toggleTheme = () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("pm_theme", next);
+    document.documentElement.setAttribute("data-theme", next);
+  };
 
   const onAvatarPick = async (e) => {
     const file = e.target.files?.[0];
@@ -111,6 +119,11 @@ export default function Profile({ me, notify, refreshMe }){
             <div style={{ fontWeight:700, fontSize:14 }}>Observing</div>
           </div>
         </Link>
+        <Link to="/purchases" style={{ flex:1, minWidth:"45%", textDecoration:"none" }}>
+          <div className="panel" style={{ padding:"14px 16px", borderRadius:14, textAlign:"center" }}>
+            <div style={{ fontWeight:700, fontSize:14 }}>My Purchases</div>
+          </div>
+        </Link>
         <Link to="/saved-searches" style={{ flex:1, minWidth:"45%", textDecoration:"none" }}>
           <div className="panel" style={{ padding:"14px 16px", borderRadius:14, textAlign:"center" }}>
             <div style={{ fontWeight:700, fontSize:14 }}>Saved Searches</div>
@@ -129,6 +142,15 @@ export default function Profile({ me, notify, refreshMe }){
             </div>
           </div>
         </Link>
+        <button onClick={toggleTheme} style={{
+          flex:1, minWidth:"45%", textDecoration:"none", cursor:"pointer", fontFamily:"inherit",
+          padding:"14px 16px", borderRadius:14, textAlign:"center",
+          background:"var(--panel)", border:"1px solid var(--border)", color:"var(--text)",
+        }}>
+          <div style={{ fontWeight:700, fontSize:14 }}>
+            {theme === "dark" ? "\u2600\uFE0F Light Mode" : "\u{1F319} Dark Mode"}
+          </div>
+        </button>
       </div>
 
       {/* My Listings */}

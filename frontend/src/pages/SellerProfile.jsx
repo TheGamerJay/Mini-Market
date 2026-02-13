@@ -91,6 +91,7 @@ export default function SellerProfile({ me, notify }){
           <div>
             <div style={{ display:"flex", alignItems:"center", gap:8 }}>
               <div style={{ fontWeight:800, fontSize:18 }}>{profile.display_name}</div>
+              {profile.is_verified && <span title="Verified" style={{ fontSize:16 }}>{"\u2705"}</span>}
               {profile.is_pro && <span className="badgePro">PRO</span>}
             </div>
             <div className="muted" style={{ fontSize:12, marginTop:2 }}>

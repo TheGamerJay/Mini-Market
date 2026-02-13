@@ -51,6 +51,7 @@ def _listing_to_dict(l: Listing):
         "is_boosted": bool(active_boost),
         "observing_count": observing_count,
         "is_pro_seller": bool(seller and seller.is_pro),
+        "is_verified_seller": bool(seller and seller.is_verified),
     }
 
 @listings_bp.get("/uploads/<path:filename>")

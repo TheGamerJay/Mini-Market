@@ -105,6 +105,22 @@ export default function Chat({ me, notify }){
         <div ref={bottomRef} />
       </div>
 
+      {/* Quick replies */}
+      {msgs.length === 0 && (
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", padding:"0 0 8px" }}>
+          {["Is this still available?", "What's the lowest you'll go?", "When can you meet?", "Can you ship this?"].map(q => (
+            <button key={q} onClick={() => setBody(q)} style={{
+              padding:"6px 12px", borderRadius:16, fontSize:11, fontWeight:600,
+              cursor:"pointer", fontFamily:"inherit",
+              background:"rgba(62,224,255,.10)", border:"1px solid rgba(62,224,255,.25)",
+              color:"var(--cyan)",
+            }}>
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Input bar */}
       <div style={{
         display:"flex", gap:8, padding:"10px 0", alignItems:"flex-end",
