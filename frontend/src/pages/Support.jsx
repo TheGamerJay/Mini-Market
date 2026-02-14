@@ -28,7 +28,10 @@ export default function Support({ me, notify }){
     e.preventDefault();
     if (!form.message.trim()) { notify("Please enter a message"); return; }
     try {
-      await api.supportContact({ email: form.email, message: form.message, type: form.type });
+      await api.supportContact({
+        email: form.email, message: form.message, type: form.type,
+        user_agent: navigator.userAgent, page_url: window.location.href,
+      });
       setSent(true);
       notify("Message sent! We'll get back to you soon.");
     } catch(err) { notify(err.message); }

@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from sqlalchemy import func
 from extensions import db
 from models import User, Listing, ListingImage, BlockedUser, Report, Conversation, Message
-from email_utils import send_report_auto_reply, notify_support
+from email_utils import send_report_auto_reply, notify_report
 
 users_bp = Blueprint("users", __name__)
 
@@ -126,19 +126,15 @@ def report_user(user_id):
     # Auto-reply to reporter
     send_report_auto_reply(current_user.email, current_user.display_name, reason, listing_title)
 
-    # Notify support inbox
+    # Notify support inbox (Reply-To = reporter's email)
     reported = db.session.get(User, user_id)
-    notify_support(
-        subject=f"[Report] {reason} — {listing_title or 'User report'}",
-        body_html=f"""
-        <div style="font-family:sans-serif;padding:16px;">
-            <h3>New Report</h3>
-            <p><strong>Reporter:</strong> {current_user.email}</p>
-            <p><strong>Reported user:</strong> {reported.email if reported else user_id}</p>
-            {f'<p><strong>Listing:</strong> {listing_title} (ID: {listing_id})</p>' if listing_title else ''}
-            <p><strong>Reason:</strong> {reason}</p>
-        </div>
-        """,
+    notify_report(
+        reporter_email=current_user.email,
+        reported_email=reported.email if reported else user_id,
+        listing_title=listing_title,
+        listing_id=listing_id,
+        reason=reason,
+        reporter_id=current_user.id,
     )
 
     return jsonify({"ok": True}), 201
