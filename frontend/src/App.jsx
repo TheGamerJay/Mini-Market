@@ -11,7 +11,7 @@ import Listing from "./pages/Listing.jsx";
 import Messages from "./pages/Messages.jsx";
 import Chat from "./pages/Chat.jsx";
 import Profile from "./pages/Profile.jsx";
-import Observing from "./pages/Observing.jsx";
+import Saved from "./pages/Saved.jsx";
 import Login from "./pages/Login.jsx";
 import Signup from "./pages/Signup.jsx";
 import Forgot from "./pages/Forgot.jsx";
@@ -23,7 +23,6 @@ import Support from "./pages/Support.jsx";
 import Terms from "./pages/Terms.jsx";
 import Privacy from "./pages/Privacy.jsx";
 import SellerProfile from "./pages/SellerProfile.jsx";
-import SavedSearches from "./pages/SavedSearches.jsx";
 import Purchases from "./pages/Purchases.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 import MeetupConfirm from "./pages/MeetupConfirm.jsx";
@@ -133,9 +132,9 @@ export default function App(){
               <Profile me={me} notify={notify} refreshMe={refreshMe} />
             </RequireAuth>
           }/>
-          <Route path="/observing" element={
+          <Route path="/saved" element={
             <RequireAuth authed={me.authed} loading={me.loading}>
-              <Observing me={me} notify={notify} />
+              <Saved notify={notify} />
             </RequireAuth>
           }/>
           <Route path="/notifications" element={
@@ -156,11 +155,6 @@ export default function App(){
           <Route path="/seller/:id" element={
             <RequireAuth authed={me.authed} loading={me.loading}>
               <SellerProfile me={me} notify={notify} />
-            </RequireAuth>
-          }/>
-          <Route path="/saved-searches" element={
-            <RequireAuth authed={me.authed} loading={me.loading}>
-              <SavedSearches notify={notify} />
             </RequireAuth>
           }/>
           <Route path="/purchases" element={
