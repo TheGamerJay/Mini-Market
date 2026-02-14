@@ -118,11 +118,6 @@ export default function Profile({ me, notify, refreshMe }){
 
       {/* Quick links */}
       <div style={{ display:"flex", gap:10, marginTop:12, flexWrap:"wrap" }}>
-        <Link to="/saved" style={{ flex:1, minWidth:"45%", textDecoration:"none" }}>
-          <div className="panel" style={{ padding:"14px 16px", borderRadius:14, textAlign:"center" }}>
-            <div style={{ fontWeight:700, fontSize:14 }}>Saved</div>
-          </div>
-        </Link>
         <Link to="/purchases" style={{ flex:1, minWidth:"45%", textDecoration:"none" }}>
           <div className="panel" style={{ padding:"14px 16px", borderRadius:14, textAlign:"center" }}>
             <div style={{ fontWeight:700, fontSize:14 }}>My Purchases</div>

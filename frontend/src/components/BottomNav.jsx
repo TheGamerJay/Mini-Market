@@ -1,9 +1,9 @@
 import { NavLink } from "react-router-dom";
-import { IconHome, IconSearch, IconCamera, IconChat, IconPerson } from "./Icons.jsx";
+import { IconHome, IconEye, IconCamera, IconChat, IconPerson } from "./Icons.jsx";
 
 const items = [
   { to: "/",         icon: IconHome,   label: "Home" },
-  { to: "/search",   icon: IconSearch, label: "Search" },
+  { to: "/saved",    icon: IconEye,    label: "Saved" },
   { to: "/post",     icon: IconCamera, label: "Post", isCenter: true },
   { to: "/messages", icon: IconChat,   label: "Chats", badge: "chats" },
   { to: "/profile",  icon: IconPerson, label: "Profile" },
