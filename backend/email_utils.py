@@ -1,4 +1,3 @@
-import threading
 import uuid
 import requests as http_requests
 from datetime import datetime, timezone
@@ -21,46 +20,38 @@ def _ticket_id(prefix="PM"):
     return f"{prefix}-{short}"
 
 
-def _send_async(app, to, subject, body_html, reply_to=None):
-    with app.app_context():
-        try:
-            api_key = app.config.get("RESEND_API_KEY")
-            from_addr = app.config.get("RESEND_FROM", "Pocket Market <noreply@pocket-market.com>")
-
-            payload = {
-                "from": from_addr,
-                "to": [to],
-                "subject": subject,
-                "html": body_html,
-            }
-            if reply_to:
-                payload["reply_to"] = reply_to
-
-            resp = http_requests.post(
-                "https://api.resend.com/emails",
-                headers={"Authorization": f"Bearer {api_key}"},
-                json=payload,
-                timeout=10,
-            )
-            if resp.status_code >= 400:
-                app.logger.error(f"Resend API error {resp.status_code}: {resp.text}")
-        except Exception as e:
-            app.logger.error(f"Failed to send email: {e}")
-
-
 def send_email(to, subject, body_html, reply_to=None):
-    """Send an email via Resend in a background thread."""
-    if not current_app.config.get("RESEND_API_KEY"):
+    """Send an email via Resend API (synchronous)."""
+    api_key = current_app.config.get("RESEND_API_KEY")
+    if not api_key:
         current_app.logger.warning("RESEND_API_KEY not set, skipping email")
         return
 
-    app = current_app._get_current_object()
-    thread = threading.Thread(target=_send_async, args=(app, to, subject, body_html, reply_to))
-    thread.start()
+    from_addr = current_app.config.get("RESEND_FROM", "Pocket Market <noreply@pocket-market.com>")
+    payload = {
+        "from": from_addr,
+        "to": [to],
+        "subject": subject,
+        "html": body_html,
+    }
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    try:
+        resp = http_requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json=payload,
+            timeout=10,
+        )
+        if resp.status_code >= 400:
+            current_app.logger.error(f"Resend API error {resp.status_code}: {resp.text}")
+    except Exception as e:
+        current_app.logger.error(f"Failed to send email: {e}")
 
 
 def send_email_sync(to, subject, body_html, reply_to=None):
-    """Send an email via Resend synchronously (for debugging)."""
+    """Send an email via Resend synchronously and return the result."""
     api_key = current_app.config.get("RESEND_API_KEY")
     if not api_key:
         raise ValueError("RESEND_API_KEY not set")
