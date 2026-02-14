@@ -83,12 +83,16 @@ def create_app():
 
     @app.post("/api/test-email")
     def test_email():
-        from flask_login import current_user as cu
-        if not cu.is_authenticated:
-            return jsonify({"error": "Login required"}), 401
-        from email_utils import send_welcome
-        send_welcome(cu.email, cu.display_name)
-        return jsonify({"ok": True, "sent_to": cu.email}), 200
+        import traceback
+        try:
+            from flask_login import current_user as cu
+            if not cu.is_authenticated:
+                return jsonify({"error": "Login required"}), 401
+            from email_utils import send_welcome
+            send_welcome(cu.email, cu.display_name)
+            return jsonify({"ok": True, "sent_to": cu.email}), 200
+        except Exception as e:
+            return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
     # ── Serve the React frontend ──
     @app.route("/", defaults={"path": ""})
