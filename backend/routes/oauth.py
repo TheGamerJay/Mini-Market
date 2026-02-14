@@ -5,7 +5,7 @@ from authlib.integrations.flask_client import OAuth
 
 from extensions import db
 from models import User
-from email_utils import send_email
+from email_utils import send_welcome
 
 oauth_bp = Blueprint("oauth", __name__)
 oauth = OAuth()
@@ -83,28 +83,7 @@ def google_callback():
     # Send welcome email for new users
     if is_new and email:
         try:
-            uname = name or "there"
-            send_email(
-                to=email,
-                subject=f"Welcome to Pocket Market, {uname}!",
-                body_html=f"""
-                <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-                    <h2 style="color:#3ee0ff;">Welcome to Pocket Market!</h2>
-                    <p>Hi {uname},</p>
-                    <p>Welcome to Pocket Market &mdash; your simple, fast way to buy and sell locally.</p>
-                    <p>Here's what you can do right now:</p>
-                    <ul style="line-height:2;">
-                        <li><strong>Post items</strong> in seconds (title, price, photo)</li>
-                        <li><strong>Browse listings</strong> and search what you need</li>
-                        <li><strong>Message sellers</strong> directly</li>
-                        <li><strong>Save items</strong> you want to check later</li>
-                    </ul>
-                    <p>If you ever need help, just reply to this email.</p>
-                    <p>Welcome again,<br><strong>Pocket Market Support</strong></p>
-                </div>
-                """,
-                reply_to="pocketmarket.help@gmail.com",
-            )
+            send_welcome(email, name)
         except Exception:
             pass
 

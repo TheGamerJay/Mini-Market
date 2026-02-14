@@ -6,13 +6,33 @@ from flask import current_app
 
 
 SUPPORT_EMAIL = "pocketmarket.help@gmail.com"
+BRAND_COLOR = "#3ee0ff"
 
-FOOTER = """
-<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e0e0e0;font-size:11px;color:#999;line-height:1.6;">
-    <p>If you didn't request this, you can ignore this email.</p>
-    <p>Pocket Market will never ask for your password.</p>
+HEADER = f"""
+<div style="text-align:center;padding:24px 0 16px;">
+    <h1 style="margin:0;font-size:22px;color:{BRAND_COLOR};letter-spacing:0.5px;">Pocket Market</h1>
 </div>
 """
+
+FOOTER = f"""
+<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e0e0e0;font-size:11px;color:#999;line-height:1.6;text-align:center;">
+    <p>Pocket Market &mdash; Buy &amp; sell locally, instantly.</p>
+    <p><a href="https://pocket-market.com" style="color:{BRAND_COLOR};text-decoration:none;">pocket-market.com</a></p>
+    <p style="margin-top:8px;">If you didn't expect this email, you can safely ignore it.<br>
+    Pocket Market will never ask for your password.</p>
+</div>
+"""
+
+
+def _wrap(inner_html):
+    """Wrap email content in a consistent outer layout."""
+    return f"""
+    <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#333;">
+        {HEADER}
+        {inner_html}
+        {FOOTER}
+    </div>
+    """
 
 
 def _ticket_id(prefix="PM"):
@@ -75,80 +95,97 @@ def send_email_sync(to, subject, body_html, reply_to=None):
     return resp.status_code, resp.json()
 
 
+# ── Email Templates ──────────────────────────────────────────────
+
+
 def send_welcome(email, display_name):
     name = display_name or "there"
     send_email(
         to=email,
-        subject=f"Welcome to Pocket Market, {name} \U0001F44B",
+        subject=f"Welcome to Pocket Market, {name}!",
         reply_to=SUPPORT_EMAIL,
-        body_html=f"""
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-            <h2 style="color:#3ee0ff;">Welcome to Pocket Market!</h2>
+        body_html=_wrap(f"""
+            <h2 style="color:{BRAND_COLOR};margin-top:0;">Welcome aboard!</h2>
             <p>Hi {name},</p>
-            <p>Welcome to Pocket Market &mdash; your simple, fast way to buy and sell locally.</p>
-            <p>Here's what you can do right now:</p>
-            <ul style="line-height:2;">
-                <li>\U0001F4F8 <strong>Post items</strong> in seconds (title, price, photo)</li>
-                <li>\U0001F50D <strong>Browse listings</strong> and search what you need</li>
-                <li>\U0001F4AC <strong>Message sellers</strong> directly</li>
-                <li>\u2B50 <strong>Save items</strong> you want to check later</li>
-            </ul>
-            <p>If you ever need help, just reply to this email &mdash; we actually read every message.</p>
-            <p>Welcome again,<br>
-            <strong>Pocket Market Support</strong><br>
-            <a href="mailto:{SUPPORT_EMAIL}" style="color:#3ee0ff;">{SUPPORT_EMAIL}</a></p>
-            {FOOTER}
-        </div>
-        """,
+            <p>Thanks for joining Pocket Market &mdash; the simple, fast way to buy and sell locally.</p>
+            <p style="margin-top:20px;"><strong>Here's what you can do:</strong></p>
+            <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+                <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;">
+                        <strong>Post items</strong><br>
+                        <span style="color:#666;font-size:13px;">List something in seconds &mdash; add a photo, set your price, done.</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;">
+                        <strong>Browse &amp; search</strong><br>
+                        <span style="color:#666;font-size:13px;">Find what you need from people nearby.</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #f0f0f0;font-size:14px;">
+                        <strong>Message sellers</strong><br>
+                        <span style="color:#666;font-size:13px;">Chat directly to ask questions or make offers.</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:10px 12px;font-size:14px;">
+                        <strong>Save for later</strong><br>
+                        <span style="color:#666;font-size:13px;">Bookmark items you want to come back to.</span>
+                    </td>
+                </tr>
+            </table>
+            <div style="text-align:center;margin:24px 0;">
+                <a href="https://pocket-market.com" style="display:inline-block;background:{BRAND_COLOR};color:#000;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:15px;">Start Browsing</a>
+            </div>
+            <p style="font-size:13px;color:#666;">Need help? Just reply to this email &mdash; we're here for you.</p>
+        """),
     )
 
 
 def send_support_auto_reply(email, display_name, message_type):
     name = display_name or "there"
     ticket = _ticket_id("PM")
+    label = "bug report" if message_type == "report" else "message"
     send_email(
         to=email,
-        subject="We got your message \u2705",
+        subject=f"We got your {label} [{ticket}]",
         reply_to=SUPPORT_EMAIL,
-        body_html=f"""
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-            <p style="font-size:12px;color:#999;">Ticket ID: {ticket}</p>
-            <h2 style="color:#3ee0ff;">We got your message!</h2>
+        body_html=_wrap(f"""
+            <p style="font-size:12px;color:#999;margin-top:0;">Ticket: {ticket}</p>
+            <h2 style="color:{BRAND_COLOR};margin-top:8px;">We got your {label}!</h2>
             <p>Hi {name},</p>
-            <p>Thanks for reaching out &mdash; we received your message and our team will review it.<br>
-            You can expect a reply within <strong>24&ndash;48 business hours</strong>.</p>
-            <p>If you need to add anything else, just reply to this email and it will attach to your request.</p>
-            <p>&mdash; Pocket Market Support<br>
-            <a href="mailto:{SUPPORT_EMAIL}" style="color:#3ee0ff;">{SUPPORT_EMAIL}</a></p>
-            {FOOTER}
-        </div>
-        """,
+            <p>Thanks for reaching out. Our team has received your {label} and will review it shortly.</p>
+            <div style="background:#f8f8f8;border-left:3px solid {BRAND_COLOR};padding:12px 16px;margin:20px 0;border-radius:4px;">
+                <p style="margin:0;font-size:14px;"><strong>What happens next?</strong></p>
+                <p style="margin:8px 0 0;font-size:13px;color:#666;">You can expect a reply within <strong>24&ndash;48 hours</strong>. If you need to add anything, just reply to this email &mdash; it will be attached to your ticket.</p>
+            </div>
+            <p style="font-size:13px;color:#666;">Thanks for helping us make Pocket Market better.</p>
+            <p>&mdash; <strong>Pocket Market Support</strong></p>
+        """),
     )
 
 
 def send_report_auto_reply(email, display_name, reason, listing_title=None):
     name = display_name or "there"
     ticket = _ticket_id("PM-RPT")
-    listing_line = f"<p><strong>Listing:</strong> {listing_title}</p>" if listing_title else ""
+    listing_line = f'<p style="margin:4px 0;font-size:13px;"><strong>Listing:</strong> {listing_title}</p>' if listing_title else ""
     send_email(
         to=email,
-        subject="We received your report \u2705",
+        subject=f"Report received [{ticket}]",
         reply_to=SUPPORT_EMAIL,
-        body_html=f"""
-        <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;">
-            <p style="font-size:12px;color:#999;">Ticket ID: {ticket}</p>
-            <h2 style="color:#3ee0ff;">Report Received</h2>
+        body_html=_wrap(f"""
+            <p style="font-size:12px;color:#999;margin-top:0;">Ticket: {ticket}</p>
+            <h2 style="color:{BRAND_COLOR};margin-top:8px;">Report Received</h2>
             <p>Hi {name},</p>
-            <p>Thanks for helping keep Pocket Market safe. We received your report for:</p>
-            {listing_line}
-            <p><strong>Reason selected:</strong> {reason}</p>
-            <p>Our team will review it and take appropriate action if needed.<br>
-            We may not be able to share the outcome, but every report is reviewed.</p>
-            <p>Appreciate you,<br>
-            <strong>Pocket Market Safety Team</strong></p>
-            {FOOTER}
-        </div>
-        """,
+            <p>Thanks for helping keep Pocket Market safe. We've received your report and our team will review it.</p>
+            <div style="background:#f8f8f8;padding:12px 16px;margin:20px 0;border-radius:8px;border:1px solid #eee;">
+                {listing_line}
+                <p style="margin:4px 0;font-size:13px;"><strong>Reason:</strong> {reason}</p>
+            </div>
+            <p style="font-size:13px;color:#666;">We take every report seriously. While we may not be able to share the specific outcome, please know that every report is reviewed by our team.</p>
+            <p>Appreciate you looking out,<br><strong>Pocket Market Safety Team</strong></p>
+        """),
     )
 
 
@@ -159,26 +196,27 @@ def notify_support_contact(user_email, display_name, user_id, message, message_t
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     name = display_name or "Unknown"
 
-    device_line = f"<p><strong>Device:</strong> {user_agent}</p>" if user_agent else ""
-    page_line = f"<p><strong>Page:</strong> {page_url}</p>" if page_url else ""
-    uid_line = f"<p><strong>User ID:</strong> {user_id}</p>" if user_id else ""
+    device_line = f"<tr><td style='padding:4px 8px;font-weight:600;'>Device</td><td style='padding:4px 8px;'>{user_agent}</td></tr>" if user_agent else ""
+    page_line = f"<tr><td style='padding:4px 8px;font-weight:600;'>Page</td><td style='padding:4px 8px;'>{page_url}</td></tr>" if page_url else ""
+    uid_line = f"<tr><td style='padding:4px 8px;font-weight:600;'>User ID</td><td style='padding:4px 8px;'>{user_id}</td></tr>" if user_id else ""
 
     send_email(
         to=SUPPORT_EMAIL,
-        subject=f"[Pocket Market] {label} from {user_email}",
+        subject=f"[Pocket Market] {label} from {name}",
         reply_to=user_email,
         body_html=f"""
-        <div style="font-family:sans-serif;padding:16px;">
-            <h3>New {label}</h3>
-            <p><strong>Name:</strong> {name}</p>
-            <p><strong>Email:</strong> {user_email}</p>
-            {uid_line}
-            <p><strong>Time:</strong> {now}</p>
+        <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;padding:16px;color:#333;">
+            <h2 style="color:{BRAND_COLOR};margin-top:0;">New {label}</h2>
+            <table style="border-collapse:collapse;font-size:14px;margin:12px 0;">
+                <tr><td style="padding:4px 8px;font-weight:600;">From</td><td style="padding:4px 8px;">{name} ({user_email})</td></tr>
+                {uid_line}
+                <tr><td style="padding:4px 8px;font-weight:600;">Time</td><td style="padding:4px 8px;">{now}</td></tr>
+                {device_line}
+                {page_line}
+            </table>
             <hr style="border:0;border-top:1px solid #e0e0e0;margin:16px 0;">
-            <p><strong>Message:</strong></p>
-            <div style="background:#f5f5f5;padding:12px;border-radius:8px;white-space:pre-wrap;">{message}</div>
-            {device_line}
-            {page_line}
+            <p style="font-weight:600;margin-bottom:8px;">Message:</p>
+            <div style="background:#f5f5f5;padding:14px;border-radius:8px;white-space:pre-wrap;font-size:14px;line-height:1.5;">{message}</div>
             <p style="margin-top:16px;font-size:12px;color:#999;">Reply directly to respond to the user.</p>
         </div>
         """,
@@ -189,22 +227,23 @@ def notify_report(reporter_email, reported_email, listing_title, listing_id, rea
                   reporter_id=None):
     """Send report notification to admin inbox. Reply-To = reporter's email."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    listing_line = f"<p><strong>Listing:</strong> {listing_title} (ID: {listing_id})</p>" if listing_title else ""
 
     send_email(
         to=SUPPORT_EMAIL,
-        subject=f"[Report] {reason} \u2014 {listing_title or 'User report'}",
+        subject=f"[Report] {reason} — {listing_title or 'User report'}",
         reply_to=reporter_email,
         body_html=f"""
-        <div style="font-family:sans-serif;padding:16px;">
-            <h3>New Listing Report</h3>
-            <p><strong>Reporter:</strong> {reporter_email}</p>
-            <p><strong>Reported user:</strong> {reported_email}</p>
-            {listing_line}
-            <p><strong>Reason:</strong> {reason}</p>
-            <p><strong>Time:</strong> {now}</p>
+        <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;padding:16px;color:#333;">
+            <h2 style="color:#e74c3c;margin-top:0;">Listing Report</h2>
+            <table style="border-collapse:collapse;font-size:14px;margin:12px 0;">
+                <tr><td style="padding:4px 8px;font-weight:600;">Reporter</td><td style="padding:4px 8px;">{reporter_email}</td></tr>
+                <tr><td style="padding:4px 8px;font-weight:600;">Reported user</td><td style="padding:4px 8px;">{reported_email}</td></tr>
+                <tr><td style="padding:4px 8px;font-weight:600;">Listing</td><td style="padding:4px 8px;">{listing_title or 'N/A'} (ID: {listing_id})</td></tr>
+                <tr><td style="padding:4px 8px;font-weight:600;">Reason</td><td style="padding:4px 8px;">{reason}</td></tr>
+                <tr><td style="padding:4px 8px;font-weight:600;">Time</td><td style="padding:4px 8px;">{now}</td></tr>
+            </table>
             <hr style="border:0;border-top:1px solid #e0e0e0;margin:16px 0;">
-            <p><strong>Suggested action:</strong> review listing + user history.</p>
+            <p style="font-size:13px;color:#666;"><strong>Action:</strong> Review listing + user history.</p>
             <p style="margin-top:16px;font-size:12px;color:#999;">Reply directly to respond to the reporter.</p>
         </div>
         """,
