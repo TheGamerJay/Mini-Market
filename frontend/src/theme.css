@@ -17,6 +17,8 @@
   --max: 1040px;
 
   --input-bg: #1a1f2b;
+  --nav-bg: rgba(14,18,26,.97);
+  --toast-bg: rgba(16,20,28,.92);
   --body-gradient: radial-gradient(1400px 900px at 15% -5%, rgba(62,224,255,.14), transparent 55%),
               radial-gradient(1200px 800px at 85% 10%, rgba(164,122,255,.16), transparent 50%),
               radial-gradient(800px 600px at 50% 80%, rgba(62,224,255,.06), transparent 60%),
@@ -40,6 +42,8 @@
   --shadow: 0 4px 16px rgba(0,0,0,.08);
 
   --input-bg: #fff;
+  --nav-bg: rgba(245,246,250,.97);
+  --toast-bg: rgba(255,255,255,.92);
   --body-gradient: radial-gradient(1400px 900px at 15% -5%, rgba(0,153,204,.06), transparent 55%),
               radial-gradient(1200px 800px at 85% 10%, rgba(124,77,255,.06), transparent 50%),
               var(--bg);
@@ -92,7 +96,7 @@ a{ color: inherit; text-decoration:none; }
   padding: 8px 10px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255,255,255,.05);
+  background: var(--panel);
   color: var(--muted);
   font-size: 13px;
 }
@@ -119,7 +123,8 @@ hr.sep{
   left: 50%;
   transform: translateX(-50%);
   bottom: 78px;
-  background: rgba(16,20,28,.92);
+  background: var(--toast-bg);
+  color: var(--text);
   border: 1px solid var(--border);
   padding: 10px 14px;
   border-radius: 12px;

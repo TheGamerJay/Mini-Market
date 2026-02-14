@@ -6,7 +6,7 @@ export default function Input({ label, icon, rightAction, ...props }){
     paddingRight: rightAction ? 80 : 14,
     borderRadius: 14,
     border: "1px solid var(--border)",
-    background: "rgba(255,255,255,.04)",
+    background: "var(--input-bg)",
     color: "var(--text)",
     outline: "none",
     fontSize: 14,

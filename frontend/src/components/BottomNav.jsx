@@ -14,7 +14,7 @@ export default function BottomNav({ unreadChats = 0 }){
     <div style={{
       position: "fixed", left: 0, right: 0, bottom: 0,
       padding: "8px 10px 12px",
-      background: "rgba(14,18,26,.97)",
+      background: "var(--nav-bg)",
       borderTop: "1px solid var(--border)",
       backdropFilter: "blur(10px)",
       zIndex: 10,

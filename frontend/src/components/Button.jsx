@@ -19,7 +19,7 @@ export default function Button({ children, variant="primary", icon, ...props }){
     primary: {
       background: "linear-gradient(135deg, rgba(62,224,255,.25), rgba(164,122,255,.22))",
       border: "1px solid rgba(62,224,255,.40)",
-      color: "#fff",
+      color: "var(--text)",
     },
     ghost: { background: "transparent", border: "1px solid var(--border)" },
     danger: { background: "rgba(255,92,92,.14)", border: "1px solid rgba(255,92,92,.40)" }

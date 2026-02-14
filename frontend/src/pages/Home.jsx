@@ -87,7 +87,7 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
     <>
       {/* ── Header ── */}
       <div style={{ display:"flex", justifyContent:"center", padding:"14px 0 6px" }}>
-        <img src="/pocketmarket_favicon_transparent_512x512.png" alt="Pocket Market" style={{ width:320, height:320 }} />
+        <img src={document.documentElement.getAttribute("data-theme") === "light" ? "/pocketmarket_favicon_dark_512x512.png" : "/pocketmarket_favicon_transparent_512x512.png"} alt="Pocket Market" style={{ width:320, height:320 }} />
       </div>
 
       {/* ── Search bar + bell ── */}
