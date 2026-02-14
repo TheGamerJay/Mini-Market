@@ -26,10 +26,6 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SECURE = os.getenv("RAILWAY_ENVIRONMENT", "") != ""
 
-    # Flask-Mail (Gmail SMTP)
-    MAIL_SERVER = "smtp.gmail.com"
-    MAIL_PORT = 587
-    MAIL_USE_TLS = True
-    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
-    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
-    MAIL_DEFAULT_SENDER = ("Pocket Market", os.getenv("MAIL_USERNAME", "noreply@pocket-market.com"))
+    # Resend (transactional email)
+    RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+    RESEND_FROM = os.getenv("RESEND_FROM", "Pocket Market <noreply@pocket-market.com>")

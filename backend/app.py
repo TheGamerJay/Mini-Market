@@ -5,7 +5,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 
 from config import Config
-from extensions import db, migrate, login_manager, mail
+from extensions import db, migrate, login_manager
 from models import User
 from routes import register_blueprints
 
@@ -37,7 +37,6 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
-    mail.init_app(app)
 
     with app.app_context():
         db.create_all()
@@ -88,13 +87,13 @@ def create_app():
             from flask_login import current_user as cu
             if not cu.is_authenticated:
                 return jsonify({"error": "Login required"}), 401
-            from email_utils import send_email
-            send_email(
+            from email_utils import send_email_sync
+            status, result = send_email_sync(
                 to=cu.email,
                 subject="Pocket Market Test Email",
                 body_html=f"<p>This is a test email for <b>{cu.display_name or cu.email}</b>. If you see this, email is working!</p>",
             )
-            return jsonify({"ok": True, "sent_to": cu.email}), 200
+            return jsonify({"ok": status < 400, "sent_to": cu.email, "status": status, "resend": result}), 200
         except Exception as e:
             return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 

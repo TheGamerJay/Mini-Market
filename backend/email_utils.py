@@ -1,11 +1,7 @@
 import threading
 import uuid
-import smtplib
-import re
+import requests as http_requests
 from datetime import datetime, timezone
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText as MIMETextPart
-from email.utils import formatdate, make_msgid
 
 from flask import current_app
 
@@ -25,57 +21,67 @@ def _ticket_id(prefix="PM"):
     return f"{prefix}-{short}"
 
 
-def _html_to_text(html):
-    """Strip HTML tags to create a plain-text version."""
-    text = re.sub(r'<br\s*/?>', '\n', html)
-    text = re.sub(r'<li[^>]*>', '- ', text)
-    text = re.sub(r'<[^>]+>', '', text)
-    text = re.sub(r'&mdash;', '--', text)
-    text = re.sub(r'&ndash;', '-', text)
-    text = re.sub(r'&amp;', '&', text)
-    text = re.sub(r'&[a-z]+;', '', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    return text.strip()
-
-
 def _send_async(app, to, subject, body_html, reply_to=None):
     with app.app_context():
         try:
-            sender = app.config.get("MAIL_USERNAME")
-            password = app.config.get("MAIL_PASSWORD")
+            api_key = app.config.get("RESEND_API_KEY")
+            from_addr = app.config.get("RESEND_FROM", "Pocket Market <noreply@pocket-market.com>")
 
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = subject
-            msg["From"] = f"Pocket Market <{sender}>"
-            msg["To"] = to
-            msg["Date"] = formatdate(localtime=True)
-            msg["Message-ID"] = make_msgid(domain="pocket-market.com")
+            payload = {
+                "from": from_addr,
+                "to": [to],
+                "subject": subject,
+                "html": body_html,
+            }
             if reply_to:
-                msg["Reply-To"] = reply_to
+                payload["reply_to"] = reply_to
 
-            # Plain text version (required for good deliverability)
-            msg.attach(MIMETextPart(_html_to_text(body_html), "plain", "utf-8"))
-            # HTML version
-            msg.attach(MIMETextPart(body_html, "html", "utf-8"))
-
-            smtp = smtplib.SMTP("smtp.gmail.com", 587)
-            smtp.starttls()
-            smtp.login(sender, password)
-            smtp.sendmail(sender, [to], msg.as_string())
-            smtp.quit()
+            resp = http_requests.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}"},
+                json=payload,
+                timeout=10,
+            )
+            if resp.status_code >= 400:
+                app.logger.error(f"Resend API error {resp.status_code}: {resp.text}")
         except Exception as e:
             app.logger.error(f"Failed to send email: {e}")
 
 
 def send_email(to, subject, body_html, reply_to=None):
-    """Send an email in a background thread so it doesn't block the request."""
-    if not current_app.config.get("MAIL_USERNAME"):
-        current_app.logger.warning("MAIL_USERNAME not set, skipping email")
+    """Send an email via Resend in a background thread."""
+    if not current_app.config.get("RESEND_API_KEY"):
+        current_app.logger.warning("RESEND_API_KEY not set, skipping email")
         return
 
     app = current_app._get_current_object()
     thread = threading.Thread(target=_send_async, args=(app, to, subject, body_html, reply_to))
     thread.start()
+
+
+def send_email_sync(to, subject, body_html, reply_to=None):
+    """Send an email via Resend synchronously (for debugging)."""
+    api_key = current_app.config.get("RESEND_API_KEY")
+    if not api_key:
+        raise ValueError("RESEND_API_KEY not set")
+
+    from_addr = current_app.config.get("RESEND_FROM", "Pocket Market <noreply@pocket-market.com>")
+    payload = {
+        "from": from_addr,
+        "to": [to],
+        "subject": subject,
+        "html": body_html,
+    }
+    if reply_to:
+        payload["reply_to"] = reply_to
+
+    resp = http_requests.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {api_key}"},
+        json=payload,
+        timeout=10,
+    )
+    return resp.status_code, resp.json()
 
 
 def send_welcome(email, display_name):
