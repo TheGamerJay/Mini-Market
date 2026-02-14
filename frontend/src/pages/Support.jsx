@@ -21,12 +21,16 @@ export default function Support({ me, notify }){
   const [form, setForm] = useState({ type: "support", email: me?.user?.email || "", message: "" });
   const [sent, setSent] = useState(false);
 
+  const supportEmail = "pocketmarket.help@gmail.com";
+
   const onSubmit = (e) => {
     e.preventDefault();
     if (!form.message.trim()) { notify("Please enter a message"); return; }
-    // For now, just show confirmation since there's no backend email service yet
+    const subject = encodeURIComponent(form.type === "report" ? "Report Issue" : "Support Request");
+    const body = encodeURIComponent(`From: ${form.email}\n\n${form.message}`);
+    window.open(`mailto:${supportEmail}?subject=${subject}&body=${body}`, "_self");
     setSent(true);
-    notify("Message sent! We'll get back to you soon.");
+    notify("Opening your email app...");
   };
 
   return (
@@ -36,7 +40,10 @@ export default function Support({ me, notify }){
 
       {/* Contact / Report form */}
       <Card>
-        <div className="h2" style={{ marginBottom:12 }}>Get in Touch</div>
+        <div className="h2" style={{ marginBottom:4 }}>Get in Touch</div>
+        <div className="muted" style={{ fontSize:12, marginBottom:12 }}>
+          Email us at <a href={`mailto:${supportEmail}`} style={{ color:"var(--cyan)", fontWeight:700 }}>{supportEmail}</a>
+        </div>
         {sent ? (
           <div style={{ textAlign:"center", padding:"16px 0" }}>
             <div style={{ fontSize:32, marginBottom:8 }}>&#10003;</div>
