@@ -83,20 +83,33 @@ def create_app():
 
     @app.get("/api/test-email")
     def test_email():
-        import traceback
+        import traceback, smtplib
         try:
             from flask_login import current_user as cu
             if not cu.is_authenticated:
                 return jsonify({"error": "Login required"}), 401
-            from flask_mail import Message as MailMsg
-            from extensions import mail as m
-            msg = MailMsg(
-                subject="Pocket Market Test Email",
-                recipients=[cu.email],
-                html=f"<p>This is a test email for <b>{cu.display_name or cu.email}</b>. If you see this, email is working!</p>",
-            )
-            m.send(msg)  # synchronous — will throw on SMTP failure
-            return jsonify({"ok": True, "sent_to": cu.email}), 200
+            # Send via raw smtplib so we can capture the SMTP response
+            sender = app.config["MAIL_USERNAME"]
+            password = app.config["MAIL_PASSWORD"]
+            to = cu.email
+            subject = "Pocket Market Test Email"
+            body = f"<html><body><p>This is a test email for <b>{cu.display_name or to}</b>. If you see this, email is working!</p></body></html>"
+            from email.mime.text import MIMEText
+            msg = MIMEText(body, "html")
+            msg["Subject"] = subject
+            msg["From"] = f"Pocket Market <{sender}>"
+            msg["To"] = to
+            smtp = smtplib.SMTP("smtp.gmail.com", 587)
+            smtp.starttls()
+            smtp.login(sender, password)
+            result = smtp.sendmail(sender, [to], msg.as_string())
+            smtp.quit()
+            return jsonify({
+                "ok": True,
+                "sent_to": to,
+                "from": sender,
+                "smtp_result": str(result),
+            }), 200
         except Exception as e:
             return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
 
