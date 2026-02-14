@@ -18,6 +18,7 @@ export default function Profile({ me, notify, refreshMe }){
   const [theme, setTheme] = useState(() => localStorage.getItem("pm_theme") || "dark");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(new Set());
+  const [stats, setStats] = useState(null);
   const fileRef = useRef(null);
 
   const toggleTheme = () => {
@@ -41,9 +42,10 @@ export default function Profile({ me, notify, refreshMe }){
     if (!me.authed) return;
     (async () => {
       try{
-        const [res, draftRes] = await Promise.all([api.myListings(), api.myDrafts()]);
+        const [res, draftRes, statsRes] = await Promise.all([api.myListings(), api.myDrafts(), api.myStats()]);
         setMyListings(res.listings || []);
         setDrafts(draftRes.listings || []);
+        setStats(statsRes.stats || null);
       }catch(err){ notify(err.message); }
     })();
   }, [me.authed]);
@@ -146,6 +148,38 @@ export default function Profile({ me, notify, refreshMe }){
           </div>
         </button>
       </div>
+
+      {/* Seller Stats (private) */}
+      {stats && (stats.total_listed > 0 || stats.total_sold > 0) && (
+        <Card style={{ marginTop:16 }}>
+          <div className="h2" style={{ marginBottom:12 }}>My Stats</div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, textAlign:"center" }}>
+            <div>
+              <div style={{ fontSize:22, fontWeight:800 }}>{stats.total_listed}</div>
+              <div className="muted" style={{ fontSize:11 }}>Listed</div>
+            </div>
+            <div>
+              <div style={{ fontSize:22, fontWeight:800, color:"var(--green)" }}>{stats.total_sold}</div>
+              <div className="muted" style={{ fontSize:11 }}>Sold</div>
+            </div>
+            <div>
+              <div style={{ fontSize:22, fontWeight:800 }}>{stats.active}</div>
+              <div className="muted" style={{ fontSize:11 }}>Active</div>
+            </div>
+          </div>
+          <hr className="sep" />
+          <div style={{ display:"flex", justifyContent:"space-around", textAlign:"center" }}>
+            <div>
+              <div style={{ fontSize:18, fontWeight:800, color:"var(--cyan)" }}>{money(stats.total_earned_cents)}</div>
+              <div className="muted" style={{ fontSize:11 }}>Total Earned</div>
+            </div>
+            <div>
+              <div style={{ fontSize:18, fontWeight:800 }}>{stats.total_views}</div>
+              <div className="muted" style={{ fontSize:11 }}>Total Views</div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Drafts */}
       {drafts.length > 0 && (

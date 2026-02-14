@@ -53,6 +53,8 @@ export default function Listing({ me, notify }){
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [meetupToken, setMeetupToken] = useState(null);
   const [meetupStatus, setMeetupStatus] = useState(null);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -643,6 +645,50 @@ export default function Listing({ me, notify }){
             <Button icon={<IconEnvelope size={18} />} onClick={messageSeller}>
               Message Seller
             </Button>
+
+            {/* Report Listing */}
+            <button onClick={() => setShowReport(!showReport)} style={{
+              padding:"12px 14px", borderRadius:14, fontSize:13, fontWeight:700,
+              background:"none", border:"1px solid var(--border)",
+              color:"var(--muted)", cursor:"pointer", fontFamily:"inherit",
+              width:"100%", textAlign:"center",
+            }}>
+              Report Listing
+            </button>
+            {showReport && (
+              <Card>
+                <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Why are you reporting this?</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                  {["Prohibited item", "Scam / fraud", "Misleading description", "Offensive content", "Other"].map(r => (
+                    <button key={r} onClick={() => setReportReason(r)} style={{
+                      padding:"10px 12px", borderRadius:10, fontSize:13, fontWeight:600,
+                      cursor:"pointer", fontFamily:"inherit", textAlign:"left",
+                      background: reportReason === r ? "rgba(62,224,255,.12)" : "var(--panel2)",
+                      border: reportReason === r ? "1px solid var(--cyan)" : "1px solid var(--border)",
+                      color: reportReason === r ? "var(--cyan)" : "var(--text)",
+                    }}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={async () => {
+                  if (!reportReason) { notify("Select a reason"); return; }
+                  try {
+                    await api.reportUser(listing.user_id, { listing_id: listing.id, reason: reportReason });
+                    setShowReport(false);
+                    setReportReason("");
+                    notify("Report submitted. We'll review it shortly.");
+                  } catch(err) { notify(err.message); }
+                }} style={{
+                  marginTop:10, width:"100%", padding:"12px 0", borderRadius:12,
+                  fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
+                  background:"rgba(231,76,60,.12)", border:"1px solid var(--red, #e74c3c)",
+                  color:"var(--red, #e74c3c)",
+                }}>
+                  Submit Report
+                </button>
+              </Card>
+            )}
 
             {/* My offers on this listing */}
             {offers.filter(o => o.buyer_id === me?.user?.id).length > 0 && (

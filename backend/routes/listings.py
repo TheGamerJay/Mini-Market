@@ -74,6 +74,33 @@ def purchases():
     return jsonify({"purchases": [_listing_to_dict(l) for l in rows]}), 200
 
 
+@listings_bp.get("/my-stats")
+@login_required
+def my_stats():
+    listings = Listing.query.filter_by(user_id=current_user.id, is_draft=False).all()
+    total_listed = len(listings)
+    total_sold = sum(1 for l in listings if l.is_sold)
+    total_earned = sum(l.price_cents for l in listings if l.is_sold)
+    active = sum(1 for l in listings if not l.is_sold)
+
+    listing_ids = [l.id for l in listings]
+    total_views = 0
+    if listing_ids:
+        total_views = db.session.query(func.count(ListingView.id)).filter(
+            ListingView.listing_id.in_(listing_ids)
+        ).scalar() or 0
+
+    return jsonify({
+        "stats": {
+            "total_listed": total_listed,
+            "total_sold": total_sold,
+            "total_earned_cents": total_earned,
+            "active": active,
+            "total_views": total_views,
+        }
+    }), 200
+
+
 @listings_bp.get("/drafts")
 @login_required
 def my_drafts():

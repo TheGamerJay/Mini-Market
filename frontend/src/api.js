@@ -96,6 +96,7 @@ export const api = {
   sellerReviews: (sellerId) => req(`/api/reviews/seller/${sellerId}`),
   canReview: (listingId) => req(`/api/reviews/listing/${listingId}/can-review`),
 
+  myStats: () => req("/api/listings/my-stats"),
   trackView: (id) => req(`/api/listings/${id}/view`, { method:"POST" }),
   myDrafts: () => req("/api/listings/drafts"),
   publishDraft: (id) => req(`/api/listings/${id}/publish`, { method:"POST" }),
