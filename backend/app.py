@@ -81,7 +81,7 @@ def create_app():
     def health():
         return jsonify({"ok": True}), 200
 
-    @app.post("/api/test-email")
+    @app.get("/api/test-email")
     def test_email():
         import traceback
         try:
