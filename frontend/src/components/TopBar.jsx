@@ -7,10 +7,7 @@ export default function TopBar({ title, right, onBack, showLogo, centerTitle }){
       display: "flex",
       alignItems: "center",
       justifyContent: centerTitle ? "center" : "space-between",
-      position: "sticky",
-      top: 10,
-      zIndex: 5,
-      backdropFilter: "blur(8px)",
+      borderRadius: 14,
       gap: 12,
     }}>
       {onBack && (
