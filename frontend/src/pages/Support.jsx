@@ -9,10 +9,10 @@ const FAQ = [
   { q: "How do I post a listing?", a: "Tap the + button in the bottom nav to create a new listing. Add a title, price, photos, and details about your item." },
   { q: "How do I message a seller?", a: "Open any listing and tap the \"Message Seller\" button. You'll be taken to a chat where you can discuss the item." },
   { q: "How does Safe Meetup work?", a: "When viewing a listing, tap \"Safe Meetup\" to suggest a public meeting spot like a police station or coffee shop. Both parties can see the location on a map." },
-  { q: "What does Observing do?", a: "Tap the eye icon on a listing to observe it. You'll get notified when the seller changes the price or marks it as sold." },
+  { q: "What does the eye icon do?", a: "Tap the eye icon on a listing to save it to your Saved list. You'll get notified when the seller changes the price or marks it as sold." },
   { q: "How do I edit or delete my listing?", a: "Open your listing and scroll down. You'll see options to edit details, mark as sold, or delete the listing." },
-  { q: "What is Pocket Market Pro?", a: "Pro is a $8/month subscription that gives you a PRO badge, priority placement in search, up to 10 photos per listing, and an ad-free experience." },
-  { q: "How do I cancel Pro?", a: "Go to Profile → Pro Member → Cancel Pro. Your subscription ends immediately with no contracts or cancellation fees." },
+  { q: "What is Pocket Market Pro?", a: "Pro is a $9.99/month subscription that gives you a PRO seller badge, priority placement in search, up to 10 photos per listing, and an ad-free experience." },
+  { q: "How do I cancel Pro?", a: "Go to Profile → Pro Member → Manage Subscription. You can cancel anytime through the subscription portal with no cancellation fees." },
   { q: "Is my data safe?", a: "We take privacy seriously. We never sell your data and only collect what's needed to run the marketplace. See our Privacy Policy for details." },
 ];
 
