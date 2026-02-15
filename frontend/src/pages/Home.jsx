@@ -311,13 +311,19 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
 function RecentlyViewed(){
   const [items, setItems] = useState([]);
   useEffect(() => {
-    try {
-      const recent = JSON.parse(localStorage.getItem("pm_recent") || "[]");
-      // Filter out entries with old broken /uploads/ image URLs
-      const valid = recent.filter(r => !r.image || !r.image.includes("/uploads/"));
-      if (valid.length !== recent.length) localStorage.setItem("pm_recent", JSON.stringify(valid));
-      setItems(valid.slice(0, 6));
-    } catch {}
+    (async () => {
+      try {
+        const recent = JSON.parse(localStorage.getItem("pm_recent") || "[]");
+        if (!recent.length) return;
+        // Validate each entry still exists on the server
+        const checks = await Promise.all(
+          recent.map(r => api.listing(r.id).then(() => r).catch(() => null))
+        );
+        const valid = checks.filter(Boolean);
+        if (valid.length !== recent.length) localStorage.setItem("pm_recent", JSON.stringify(valid));
+        setItems(valid.slice(0, 6));
+      } catch {}
+    })();
   }, []);
 
   if (items.length === 0) return null;
