@@ -46,6 +46,9 @@ export default function Listing({ me, notify }){
   const [showOffer, setShowOffer] = useState(false);
   const [boostDurations, setBoostDurations] = useState([]);
   const [showBoost, setShowBoost] = useState(false);
+  const [boostInfo, setBoostInfo] = useState(null); // { is_pro, free_boost_available, countdown_seconds }
+  const [countdown, setCountdown] = useState(0);
+  const [useFreeBoost, setUseFreeBoost] = useState(false);
   const [canReview, setCanReview] = useState(false);
   const [existingReview, setExistingReview] = useState(null);
   const [reviewComment, setReviewComment] = useState("");
@@ -99,6 +102,13 @@ export default function Listing({ me, notify }){
       localStorage.setItem(key, JSON.stringify(filtered.slice(0, 10)));
     } catch {}
   }, [listing]);
+
+  // Countdown timer for free boost cooldown
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setInterval(() => setCountdown(c => c > 0 ? c - 1 : 0), 1000);
+    return () => clearInterval(t);
+  }, [countdown > 0]);
 
   const goBack = () => window.history.length > 1 ? nav(-1) : nav("/");
 
@@ -183,12 +193,36 @@ export default function Listing({ me, notify }){
     } catch(err) { notify(err.message); }
   };
 
+  const loadBoostInfo = async () => {
+    try {
+      const [dur, status] = await Promise.all([api.boostDurations(), api.boostStatus()]);
+      setBoostDurations(dur.durations || []);
+      setBoostInfo(status);
+      if (status.free_boost_available) {
+        setUseFreeBoost(true);
+        setCountdown(0);
+      } else {
+        setUseFreeBoost(false);
+        setCountdown(status.countdown_seconds || 0);
+      }
+    } catch(err) { notify(err.message); }
+  };
+
   const activateBoost = async (hours) => {
     try {
-      await api.activateBoost({ listing_id: id, hours });
+      await api.activateBoost({
+        listing_id: id,
+        hours: useFreeBoost ? 24 : hours,
+        use_free_boost: useFreeBoost,
+      });
       setShowBoost(false);
       setListing(prev => ({ ...prev, is_boosted: true }));
-      notify("Listing boosted!");
+      notify(useFreeBoost ? "Free boost activated!" : "Listing boosted!");
+      // Refresh boost info
+      api.boostStatus().then(s => {
+        setBoostInfo(s);
+        if (!s.free_boost_available) setCountdown(s.countdown_seconds || 0);
+      }).catch(() => {});
     } catch(err) { notify(err.message); }
   };
 
@@ -533,7 +567,7 @@ export default function Listing({ me, notify }){
             {/* Boost button */}
             {!listing.is_boosted ? (
               <Button onClick={() => {
-                api.boostDurations().then(r => setBoostDurations(r.durations || []));
+                loadBoostInfo();
                 setShowBoost(!showBoost);
               }}>
                 Boost Listing
@@ -549,21 +583,84 @@ export default function Listing({ me, notify }){
               </div>
             )}
 
-            {showBoost && boostDurations.length > 0 && (
+            {showBoost && boostInfo && (
               <Card>
-                <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Choose boost duration</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                  {boostDurations.map(d => (
-                    <button key={d.hours} onClick={() => activateBoost(d.hours)} style={{
-                      display:"flex", justifyContent:"space-between", alignItems:"center",
-                      padding:"10px 12px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
-                      background:"var(--panel2)", border:"1px solid var(--border)", color:"var(--text)",
-                    }}>
-                      <span style={{ fontWeight:600, fontSize:13 }}>{d.label}</span>
-                      <span style={{ fontWeight:800, fontSize:13, color:"var(--cyan)" }}>${d.price_usd}</span>
+                <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>Boost this listing</div>
+
+                {/* Pro free boost toggle */}
+                {boostInfo.is_pro && (
+                  <div style={{ marginBottom:12 }}>
+                    <button
+                      onClick={() => setUseFreeBoost(!useFreeBoost)}
+                      disabled={!boostInfo.free_boost_available}
+                      style={{
+                        width:"100%", padding:"12px 14px", borderRadius:12, cursor: boostInfo.free_boost_available ? "pointer" : "default",
+                        fontFamily:"inherit", display:"flex", justifyContent:"space-between", alignItems:"center",
+                        background: useFreeBoost && boostInfo.free_boost_available
+                          ? "linear-gradient(135deg, rgba(62,224,255,.15), rgba(164,122,255,.15))"
+                          : "var(--panel2)",
+                        border: useFreeBoost && boostInfo.free_boost_available
+                          ? "1.5px solid rgba(62,224,255,.50)"
+                          : "1px solid var(--border)",
+                        opacity: boostInfo.free_boost_available ? 1 : 0.5,
+                      }}
+                    >
+                      <div style={{ textAlign:"left" }}>
+                        <div style={{ fontSize:13, fontWeight:700, color: useFreeBoost ? "var(--cyan)" : "var(--text)" }}>
+                          Free Daily Boost (PRO)
+                        </div>
+                        <div className="muted" style={{ fontSize:11, marginTop:2 }}>
+                          {boostInfo.free_boost_available
+                            ? "24-hour boost \u2014 no charge"
+                            : `Used today \u2014 resets in ${Math.floor(countdown/3600)}h ${Math.floor((countdown%3600)/60)}m ${countdown%60}s`
+                          }
+                        </div>
+                      </div>
+                      <div style={{
+                        width:20, height:20, borderRadius:6,
+                        border: useFreeBoost && boostInfo.free_boost_available ? "2px solid var(--cyan)" : "2px solid var(--border)",
+                        background: useFreeBoost && boostInfo.free_boost_available ? "var(--cyan)" : "transparent",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                      }}>
+                        {useFreeBoost && boostInfo.free_boost_available && (
+                          <span style={{ color:"#000", fontSize:12, fontWeight:900 }}>{"\u2713"}</span>
+                        )}
+                      </div>
                     </button>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {/* Duration picker (for paid, or when free not selected) */}
+                {(!boostInfo.is_pro || !useFreeBoost) && boostDurations.length > 0 && (
+                  <>
+                    <div className="muted" style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>
+                      Choose duration
+                    </div>
+                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                      {boostDurations.map(d => (
+                        <button key={d.hours} onClick={() => activateBoost(d.hours)} style={{
+                          display:"flex", justifyContent:"space-between", alignItems:"center",
+                          padding:"10px 12px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                          background:"var(--panel2)", border:"1px solid var(--border)", color:"var(--text)",
+                        }}>
+                          <span style={{ fontWeight:600, fontSize:13 }}>{d.label}</span>
+                          <span style={{ fontWeight:800, fontSize:13, color:"var(--cyan)" }}>${d.price_usd}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Free boost activate button */}
+                {boostInfo.is_pro && useFreeBoost && boostInfo.free_boost_available && (
+                  <button onClick={() => activateBoost(24)} style={{
+                    width:"100%", padding:"12px 0", borderRadius:12, fontSize:14, fontWeight:800,
+                    cursor:"pointer", fontFamily:"inherit",
+                    background:"var(--cyan)", border:"none", color:"#000",
+                  }}>
+                    Activate Free 24h Boost
+                  </button>
+                )}
               </Card>
             )}
 

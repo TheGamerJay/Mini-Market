@@ -4,12 +4,39 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 
 from extensions import db
-from models import Boost, BoostImpression, Listing
+from models import Boost, BoostImpression, Listing, User
 
 boosts_bp = Blueprint("boosts", __name__)
 
 # Round-robin offset — rotates which group of 10 gets shown each request
 _rotation_offset = 0
+
+DURATIONS = [
+    {"label": "24 Hours", "hours": 24, "price_usd": 3, "price_cents": 300},
+    {"label": "3 Days",   "hours": 72, "price_usd": 7, "price_cents": 700},
+    {"label": "7 Days",   "hours": 168, "price_usd": 12, "price_cents": 1200},
+]
+DURATIONS_MAP = {d["hours"]: d["price_cents"] for d in DURATIONS}
+
+
+def _utc_today_str():
+    """Return today's UTC date as 'YYYY-MM-DD'."""
+    return datetime.utcnow().strftime("%Y-%m-%d")
+
+
+def _free_boost_available(user):
+    """Check if Pro user can use their daily free boost."""
+    if not user.is_pro:
+        return False
+    return user.pro_free_boost_last_used_day != _utc_today_str()
+
+
+def _seconds_until_reset():
+    """Seconds remaining until midnight UTC (next free boost)."""
+    now = datetime.utcnow()
+    midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return int((midnight - now).total_seconds())
+
 
 @boosts_bp.get("/featured")
 def featured():
@@ -42,14 +69,35 @@ def featured():
 
     return jsonify({"featured_listing_ids": listing_ids}), 200
 
+
 @boosts_bp.get("/durations")
+@login_required
 def durations():
+    is_pro = current_user.is_pro
+    free_available = _free_boost_available(current_user)
     return jsonify({
         "durations": [
-            {"label": "24 Hours", "hours": 24, "price_usd": 3},
-            {"label": "3 Days", "hours": 72, "price_usd": 7},
-            {"label": "7 Days", "hours": 168, "price_usd": 12},
-        ]
+            {"label": d["label"], "hours": d["hours"], "price_usd": d["price_usd"]}
+            for d in DURATIONS
+        ],
+        "is_pro": is_pro,
+        "free_boost_available": free_available,
+    }), 200
+
+
+@boosts_bp.get("/status")
+@login_required
+def boost_status():
+    """Return Pro boost status: whether free boost is available, countdown, etc."""
+    is_pro = current_user.is_pro
+    free_available = _free_boost_available(current_user)
+    countdown_seconds = 0 if free_available else _seconds_until_reset()
+
+    return jsonify({
+        "is_pro": is_pro,
+        "free_boost_available": free_available,
+        "countdown_seconds": countdown_seconds,
+        "last_used_day": current_user.pro_free_boost_last_used_day,
     }), 200
 
 
@@ -59,15 +107,15 @@ def activate_boost():
     data = request.get_json(force=True)
     listing_id = data.get("listing_id")
     hours = int(data.get("hours") or 0)
+    use_free = bool(data.get("use_free_boost", False))
 
-    durations_map = {24: 300, 72: 700, 168: 1200}
-    if hours not in durations_map:
+    if hours not in DURATIONS_MAP:
         return jsonify({"error": "Invalid duration"}), 400
 
-    l = db.session.get(Listing, listing_id)
-    if not l:
+    listing = db.session.get(Listing, listing_id)
+    if not listing:
         return jsonify({"error": "Listing not found"}), 404
-    if l.user_id != current_user.id:
+    if listing.user_id != current_user.id:
         return jsonify({"error": "Forbidden"}), 403
 
     now = datetime.utcnow()
@@ -79,18 +127,54 @@ def activate_boost():
     if existing:
         return jsonify({"error": "Already boosted"}), 400
 
-    boost = Boost(
-        listing_id=listing_id,
-        starts_at=now,
-        ends_at=now + timedelta(hours=hours),
-        status="active",
-        paid_cents=durations_map[hours],
-    )
-    db.session.add(boost)
-    db.session.commit()
+    if use_free:
+        # Validate Pro free boost
+        if not current_user.is_pro:
+            return jsonify({"error": "Free boosts are for Pro members only"}), 403
+        if not _free_boost_available(current_user):
+            secs = _seconds_until_reset()
+            return jsonify({
+                "error": "Free boost already used today",
+                "countdown_seconds": secs,
+            }), 429
 
-    return jsonify({"ok": True, "boost": {
-        "id": boost.id,
-        "ends_at": boost.ends_at.isoformat(),
-        "hours": hours,
-    }}), 201
+        # Create free boost (always 24h for free)
+        boost = Boost(
+            listing_id=listing_id,
+            starts_at=now,
+            ends_at=now + timedelta(hours=24),
+            status="active",
+            paid_cents=0,
+            boost_type="free_pro",
+        )
+        db.session.add(boost)
+
+        # Mark free boost as used today
+        current_user.pro_free_boost_last_used_day = _utc_today_str()
+        db.session.commit()
+
+        return jsonify({"ok": True, "boost": {
+            "id": boost.id,
+            "ends_at": boost.ends_at.isoformat(),
+            "hours": 24,
+            "boost_type": "free_pro",
+        }}), 201
+    else:
+        # Paid boost
+        boost = Boost(
+            listing_id=listing_id,
+            starts_at=now,
+            ends_at=now + timedelta(hours=hours),
+            status="active",
+            paid_cents=DURATIONS_MAP[hours],
+            boost_type="paid",
+        )
+        db.session.add(boost)
+        db.session.commit()
+
+        return jsonify({"ok": True, "boost": {
+            "id": boost.id,
+            "ends_at": boost.ends_at.isoformat(),
+            "hours": hours,
+            "boost_type": "paid",
+        }}), 201

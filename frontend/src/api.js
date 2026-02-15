@@ -66,6 +66,7 @@ export const api = {
 
   featured: () => req("/api/boosts/featured"),
   boostDurations: () => req("/api/boosts/durations"),
+  boostStatus: () => req("/api/boosts/status"),
   activateBoost: (payload) => req("/api/boosts/activate", { method:"POST", body: payload }),
 
   billingStatus: () => req("/api/billing/status"),

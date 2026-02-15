@@ -80,6 +80,8 @@ def create_app():
         changed |= _add_col("messages", "image_url", "TEXT")
         changed |= _add_col("users", "last_seen", "TIMESTAMP WITH TIME ZONE")
         changed |= _add_col("listings", "nudged_at", "TIMESTAMP WITH TIME ZONE")
+        changed |= _add_col("users", "pro_free_boost_last_used_day", "VARCHAR(10)")
+        changed |= _add_col("boosts", "boost_type", "VARCHAR(16) DEFAULT 'paid'")
         if changed:
             db.session.commit()
 

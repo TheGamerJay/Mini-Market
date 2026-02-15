@@ -30,6 +30,7 @@ class User(UserMixin, db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     onboarding_done = db.Column(db.Boolean, default=False)
     last_seen = db.Column(db.DateTime(timezone=True), nullable=True)
+    pro_free_boost_last_used_day = db.Column(db.String(10), nullable=True)  # "YYYY-MM-DD" UTC
 
     def set_password(self, pw: str) -> None:
         self.password_hash = generate_password_hash(pw)
@@ -144,6 +145,7 @@ class Boost(db.Model):
     status = db.Column(db.String(32), nullable=False)  # "active"|"expired"|"canceled"
 
     paid_cents = db.Column(db.Integer, nullable=False)
+    boost_type = db.Column(db.String(16), nullable=False, default="paid")  # "paid"|"free_pro"
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 class BoostImpression(db.Model):
