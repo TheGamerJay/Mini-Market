@@ -4,16 +4,20 @@ import TopBar from "../components/TopBar.jsx";
 import Card from "../components/Card.jsx";
 
 const ITEMS = [
-  "Illegal goods or services of any kind",
-  "Drugs, controlled substances, or drug paraphernalia",
+  "Illegal drugs, narcotics, or controlled substances",
+  "Drug paraphernalia",
   "Weapons, firearms, ammunition, explosives, or weapon parts",
   "Stolen property or items obtained illegally",
-  "Adult services, escorting, or explicit sexual content",
-  "Fraudulent, misleading, or deceptive listings",
   "Counterfeit or pirated goods",
-  "Financial services, loans, or investment products",
-  "Hateful, violent, or discriminatory content",
-  "Any item that violates local, state, or federal law",
+  "Adult services, escorting, or sexual services",
+  "Pornographic content",
+  "Financial services, investment schemes, or loans",
+  "Cryptocurrency sales or financial instruments",
+  "Prescription medications or medical devices requiring approval",
+  "Hazardous materials",
+  "Items that violate local, state, or federal laws",
+  "Hate speech, violent content, or items promoting harm",
+  "Services that require licensing the seller does not possess",
 ];
 
 export default function ProhibitedItems(){
@@ -25,9 +29,12 @@ export default function ProhibitedItems(){
       <div style={{ height:12 }} />
 
       <Card>
-        <div style={{ fontWeight:800, fontSize:16, marginBottom:8 }}>Prohibited Items & Activities</div>
         <div className="muted" style={{ fontSize:12, lineHeight:1.7, marginBottom:16 }}>
-          Pocket Market is a peer-to-peer marketplace. The following items and activities are strictly prohibited on this platform:
+          The following items and activities are strictly prohibited on Pocket Market. Listings violating these rules may be removed without notice, and accounts may be suspended.
+        </div>
+
+        <div style={{ fontWeight:700, fontSize:13, marginBottom:10 }}>
+          Prohibited items include, but are not limited to:
         </div>
 
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
@@ -42,13 +49,8 @@ export default function ProhibitedItems(){
           ))}
         </div>
 
-        <div style={{
-          marginTop:20, padding:"12px 14px", borderRadius:10,
-          background:"rgba(231,76,60,.08)", border:"1px solid rgba(231,76,60,.20)",
-        }}>
-          <div style={{ fontSize:12, lineHeight:1.7, color:"var(--text)" }}>
-            Listings that violate these rules may be removed without notice, and user accounts may be suspended or terminated.
-          </div>
+        <div className="muted" style={{ fontSize:12, lineHeight:1.7, marginTop:16 }}>
+          Pocket Market reserves the right to remove any listing that violates these rules or applicable laws.
         </div>
       </Card>
 
