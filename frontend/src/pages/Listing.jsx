@@ -233,7 +233,7 @@ export default function Listing({ me, notify }){
   return (
     <>
       {/* ── Hero image gallery with back button ── */}
-      <div style={{ position:"relative", margin:"-18px -16px 0", overflow:"hidden" }}>
+      <div className="listing-hero" style={{ position:"relative", margin:"-18px -16px 0", overflow:"hidden" }}>
         <button onClick={goBack} style={{
           position:"absolute", top:16, left:16, zIndex:2,
           background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",

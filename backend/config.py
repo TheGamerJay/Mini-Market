@@ -40,7 +40,7 @@ class Config:
 
     # Redis (Railway provides REDIS_URL)
     REDIS_URL = os.getenv("REDIS_URL", "")
-    SESSION_TYPE = "redis" if os.getenv("REDIS_URL") else "filesystem"
+    SESSION_TYPE = "redis" if os.getenv("REDIS_URL") else "sqlalchemy"
     SESSION_PERMANENT = True
     SESSION_USE_SIGNER = True
     SESSION_KEY_PREFIX = "pm:"

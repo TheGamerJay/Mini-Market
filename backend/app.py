@@ -45,11 +45,13 @@ def create_app():
     login_manager.init_app(app)
     limiter.init_app(app)
 
-    # Server-side sessions (Redis when available, filesystem fallback)
+    # Server-side sessions (Redis when available, PostgreSQL fallback)
     redis_url = app.config.get("REDIS_URL")
     if redis_url:
         import redis
         app.config["SESSION_REDIS"] = redis.from_url(redis_url)
+    else:
+        app.config["SESSION_SQLALCHEMY"] = db
     from flask_session import Session
     Session(app)
 
