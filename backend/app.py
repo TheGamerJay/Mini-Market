@@ -180,14 +180,10 @@ def create_app():
 
     @app.post("/api/admin/seed-demo")
     def seed_demo():
+        import urllib.request
         secret = request.headers.get("X-Cron-Secret") or request.args.get("secret")
         if secret != app.config["CRON_SECRET"]:
             return jsonify({"error": "Forbidden"}), 403
-
-        # Check if demo listings already exist
-        existing = Listing.query.filter_by(is_demo=True).count()
-        if existing:
-            return jsonify({"ok": True, "message": f"{existing} demo listings already exist"}), 200
 
         # Get or create a demo seller account
         demo_email = "demo@pocket-market.com"
@@ -211,6 +207,7 @@ def create_app():
                 "condition": "Like New",
                 "city": "Los Angeles",
                 "pickup_or_shipping": "pickup",
+                "image_url": "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=600&q=80",
             },
             {
                 "title": "Mountain Bike - 21 Speed (Demo)",
@@ -220,13 +217,55 @@ def create_app():
                 "condition": "Good",
                 "city": "Los Angeles",
                 "pickup_or_shipping": "pickup",
+                "image_url": "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?w=600&q=80",
             },
         ]
 
         created = []
         for d in demos:
+            image_url = d.pop("image_url")
+            # Check if this demo listing already exists
+            existing = Listing.query.filter_by(title=d["title"], is_demo=True).first()
+            if existing:
+                # Add image if missing
+                has_img = ListingImage.query.filter_by(listing_id=existing.id).first()
+                if not has_img:
+                    try:
+                        img_data = urllib.request.urlopen(image_url, timeout=15).read()
+                        img_record = ListingImage(
+                            listing_id=existing.id,
+                            image_url="",
+                            image_data=img_data,
+                            image_mime="image/jpeg",
+                        )
+                        db.session.add(img_record)
+                        db.session.flush()
+                        img_record.image_url = f"/api/listings/image/{img_record.id}"
+                        created.append(f"{existing.title} (image added)")
+                    except Exception as e:
+                        created.append(f"{existing.title} (image failed: {e})")
+                else:
+                    created.append(f"{existing.title} (already has image)")
+                continue
+
             listing = Listing(user_id=demo_user.id, is_demo=True, **d)
             db.session.add(listing)
+            db.session.flush()
+
+            # Download and attach image
+            try:
+                img_data = urllib.request.urlopen(image_url, timeout=15).read()
+                img_record = ListingImage(
+                    listing_id=listing.id,
+                    image_url="",
+                    image_data=img_data,
+                    image_mime="image/jpeg",
+                )
+                db.session.add(img_record)
+                db.session.flush()
+                img_record.image_url = f"/api/listings/image/{img_record.id}"
+            except Exception:
+                pass
             created.append(d["title"])
 
         db.session.commit()
