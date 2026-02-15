@@ -79,6 +79,7 @@ def create_app():
         changed |= _add_col("listings", "renewed_at", "TIMESTAMP WITH TIME ZONE")
         changed |= _add_col("listings", "bundle_discount_pct", "INTEGER")
         changed |= _add_col("listings", "is_draft", "BOOLEAN DEFAULT FALSE")
+        changed |= _add_col("listings", "is_demo", "BOOLEAN DEFAULT FALSE")
         changed |= _add_col("messages", "image_url", "TEXT")
         changed |= _add_col("users", "last_seen", "TIMESTAMP WITH TIME ZONE")
         changed |= _add_col("listings", "nudged_at", "TIMESTAMP WITH TIME ZONE")
@@ -176,6 +177,60 @@ def create_app():
             return jsonify({"ok": status < 400, "sent_to": cu.email, "status": status, "resend": result}), 200
         except Exception as e:
             return jsonify({"error": str(e), "trace": traceback.format_exc()}), 500
+
+    @app.post("/api/admin/seed-demo")
+    def seed_demo():
+        secret = request.headers.get("X-Cron-Secret") or request.args.get("secret")
+        if secret != app.config["CRON_SECRET"]:
+            return jsonify({"error": "Forbidden"}), 403
+
+        # Check if demo listings already exist
+        existing = Listing.query.filter_by(is_demo=True).count()
+        if existing:
+            return jsonify({"ok": True, "message": f"{existing} demo listings already exist"}), 200
+
+        # Get or create a demo seller account
+        demo_email = "demo@pocket-market.com"
+        demo_user = User.query.filter_by(email=demo_email).first()
+        if not demo_user:
+            demo_user = User(
+                email=demo_email,
+                display_name="Demo Seller",
+                is_verified=True,
+            )
+            demo_user.set_password("demo-not-a-real-account")
+            db.session.add(demo_user)
+            db.session.flush()
+
+        demos = [
+            {
+                "title": "Vintage Bluetooth Speaker (Demo)",
+                "description": "This is a demo listing created for pre-launch review purposes. Pocket Market is a peer-to-peer marketplace where items are listed and sold by individual users, not by Pocket Market.",
+                "price_cents": 4500,
+                "category": "Electronics",
+                "condition": "Like New",
+                "city": "Los Angeles",
+                "pickup_or_shipping": "pickup",
+            },
+            {
+                "title": "Mountain Bike - 21 Speed (Demo)",
+                "description": "This is a demo listing created for pre-launch review purposes. Pocket Market is a peer-to-peer marketplace where items are listed and sold by individual users, not by Pocket Market.",
+                "price_cents": 12000,
+                "category": "Sports",
+                "condition": "Good",
+                "city": "Los Angeles",
+                "pickup_or_shipping": "pickup",
+            },
+        ]
+
+        created = []
+        for d in demos:
+            listing = Listing(user_id=demo_user.id, is_demo=True, **d)
+            db.session.add(listing)
+            created.append(d["title"])
+
+        db.session.commit()
+        return jsonify({"ok": True, "created": created}), 201
 
     # ── Serve the React frontend ──
     OG_BOTS = ["facebookexternalhit", "twitterbot", "linkedinbot", "slackbot",

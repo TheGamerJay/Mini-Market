@@ -58,6 +58,7 @@ def _listing_to_dict(l: Listing):
         "view_count": view_count,
         "is_pro_seller": bool(seller and seller.is_pro),
         "is_verified_seller": bool(seller and seller.is_verified),
+        "is_demo": bool(l.is_demo),
     }
 
 @listings_bp.get("/uploads/<path:filename>")
