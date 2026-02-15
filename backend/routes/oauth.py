@@ -64,7 +64,9 @@ def google_callback():
     if user:
         # Link Google to existing account and update profile
         user.google_sub = sub
-        user.avatar_url = picture or user.avatar_url
+        # Only use Google picture if user hasn't uploaded a custom avatar
+        if not user.avatar_data:
+            user.avatar_url = picture or user.avatar_url
         user.display_name = user.display_name or name
     else:
         # Create new user (no password since they auth via Google)
