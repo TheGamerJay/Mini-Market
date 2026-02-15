@@ -26,6 +26,7 @@ import About from "./pages/About.jsx";
 import Contact from "./pages/Contact.jsx";
 import SellerProfile from "./pages/SellerProfile.jsx";
 import Footer from "./components/Footer.jsx";
+import AdFooter from "./components/AdFooter.jsx";
 import Purchases from "./pages/Purchases.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 import MeetupConfirm from "./pages/MeetupConfirm.jsx";
@@ -226,6 +227,7 @@ export default function App(){
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {showFooter && <AdFooter isPro={me?.user?.is_pro} />}
         {showFooter && <Footer />}
       </div>
 

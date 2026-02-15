@@ -41,7 +41,6 @@ function timeAgo(iso){
 export default function Home({ me, notify, unreadNotifs = 0 }){
   const [listings, setListings] = useState([]);
   const [featuredIds, setFeaturedIds] = useState([]);
-  const [ads, setAds] = useState([]);
   const [busy, setBusy] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [page, setPage] = useState(1);
@@ -58,14 +57,13 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
     else { setLoadingMore(true); loadingMoreRef.current = true; }
     const p = reset ? 1 : page + 1;
     try{
-      const [feed, feat, adRes] = await Promise.all([
+      const [feed, feat] = await Promise.all([
         api.feed(p),
-        ...(reset ? [api.featured(), api.ads()] : []),
+        ...(reset ? [api.featured()] : []),
       ]);
       if (reset) {
         setListings(feed.listings || []);
         setFeaturedIds(feat.featured_listing_ids || []);
-        setAds(adRes.ads || []);
       } else {
         setListings(prev => [...prev, ...(feed.listings || [])]);
       }
@@ -278,12 +276,6 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
               </Card>
             </Link>
 
-            {!me?.user?.is_pro && ads.length > 0 && idx % 6 === 3 && (
-              <Card>
-                <div className="muted" style={{ fontSize:11 }}>Sponsored</div>
-                <div style={{ fontWeight:800, marginTop:6, fontSize:14 }}>{ads[0].title}</div>
-              </Card>
-            )}
           </React.Fragment>
         ))}
       </div>
