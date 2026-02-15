@@ -24,6 +24,16 @@ export default function Observing({ notify }){
     })();
   }, []);
 
+  const removeSaved = async (e, listingId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await api.toggleObserving(listingId);
+      setItems(prev => prev.filter(l => l.id !== listingId));
+      notify("Removed from Saved.");
+    } catch(err) { notify(err.message); }
+  };
+
   return (
     <>
       <TopBar title="Saved Items" onBack={() => nav(-1)} centerTitle />
@@ -35,7 +45,8 @@ export default function Observing({ notify }){
         <Link key={l.id} to={`/listing/${l.id}`} style={{ display:"block", marginBottom:8 }}>
           <div className="panel obs-item">
             {l.images?.length > 0 ? (
-              <img src={`${api.base}${l.images[0]}`} className="obs-item-thumb" alt={l.title} />
+              <img src={`${api.base}${l.images[0]}`} className="obs-item-thumb" alt={l.title}
+                   onError={e => { e.target.onerror=null; e.target.style.background="var(--panel2)"; e.target.src=""; }} />
             ) : (
               <div className="obs-item-thumb" style={{
                 background:"var(--panel2)", display:"flex",
@@ -53,7 +64,17 @@ export default function Observing({ notify }){
                 }
               </div>
             </div>
-            <IconChevronRight size={18} color="var(--muted)" />
+            <button
+              onClick={(e) => removeSaved(e, l.id)}
+              style={{
+                background:"none", border:"1px solid var(--red, #e74c3c)",
+                borderRadius:8, padding:"6px 10px", cursor:"pointer",
+                fontSize:11, fontWeight:700, color:"var(--red, #e74c3c)",
+                fontFamily:"inherit", flexShrink:0,
+              }}
+            >
+              Remove
+            </button>
           </div>
         </Link>
       )) : (
