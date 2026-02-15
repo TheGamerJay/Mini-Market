@@ -22,7 +22,10 @@ import Pro from "./pages/Pro.jsx";
 import Support from "./pages/Support.jsx";
 import Terms from "./pages/Terms.jsx";
 import Privacy from "./pages/Privacy.jsx";
+import About from "./pages/About.jsx";
+import Contact from "./pages/Contact.jsx";
 import SellerProfile from "./pages/SellerProfile.jsx";
+import Footer from "./components/Footer.jsx";
 import Purchases from "./pages/Purchases.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 import MeetupConfirm from "./pages/MeetupConfirm.jsx";
@@ -127,7 +130,9 @@ export default function App(){
 
   const loc = useLocation();
   const authPages = ["/login", "/signup", "/forgot", "/reset", "/verify"];
+  const publicPages = ["/about", "/privacy", "/terms", "/contact"];
   const hideNav = authPages.includes(loc.pathname);
+  const showFooter = !authPages.includes(loc.pathname);
 
   return (
     <>
@@ -210,6 +215,8 @@ export default function App(){
           }/>
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact notify={notify} />} />
           <Route path="/verify" element={<Verify notify={notify} />} />
 
           <Route path="/login" element={<Login notify={notify} refreshMe={refreshMe} />} />
@@ -219,6 +226,7 @@ export default function App(){
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        {showFooter && <Footer />}
       </div>
 
       {!hideNav && <BottomNav unreadChats={unreadChats} />}

@@ -17,44 +17,52 @@ const SECTIONS = [
     body: "You are responsible for maintaining the confidentiality of your account credentials. You agree to provide accurate information when creating your account and to update your information as needed. You are responsible for all activity that occurs under your account.",
   },
   {
-    title: "4. Listings & Transactions",
-    body: "Pocket Market is a platform that connects buyers and sellers. We do not own, sell, or resell any items listed on the platform. All transactions are between buyers and sellers directly. We are not responsible for the quality, safety, legality, or availability of items listed. Sellers are responsible for accurately describing their items and setting fair prices.",
+    title: "4. Platform Role",
+    body: "Pocket Market is a peer-to-peer marketplace platform. We connect buyers and sellers but do not own, sell, resell, or inspect any items listed. We do not participate in or guarantee any transaction between users. All deals are made directly between the buyer and seller.",
   },
   {
-    title: "5. Prohibited Items",
-    body: "You may not list items that are illegal, stolen, counterfeit, hazardous, or otherwise prohibited by law. This includes but is not limited to: weapons, drugs, alcohol, tobacco, adult content, and items that infringe on intellectual property rights. We reserve the right to remove any listing that violates these guidelines.",
+    title: "5. User-Generated Content",
+    body: "All listings, descriptions, photos, messages, and other content posted on Pocket Market are created by users, not by Pocket Market. We do not endorse, verify, or guarantee the accuracy of any user-generated content. Users are solely responsible for the content they post, including ensuring it is accurate, lawful, and does not infringe on the rights of others.",
   },
   {
-    title: "6. User Conduct",
-    body: "You agree not to: harass, threaten, or intimidate other users; post false, misleading, or fraudulent listings; use the platform for any illegal purpose; attempt to circumvent any security features; scrape or collect data from the platform without permission; or interfere with the proper functioning of the platform.",
+    title: "6. User Responsibilities",
+    body: "Users are responsible for their own listings, communications, and transactions. Sellers must accurately describe items and set honest prices. Buyers should inspect items before completing a purchase. Both parties are responsible for arranging safe meetups and completing transactions on their own terms.",
   },
   {
-    title: "7. Safe Meetup",
-    body: "Pocket Market provides Safe Meetup suggestions as a convenience. We recommend meeting in well-lit public places. However, we are not responsible for your safety during any in-person transaction. Always exercise caution and good judgment when meeting strangers.",
+    title: "7. Prohibited Items & Conduct",
+    body: "You may not list items that are illegal, stolen, counterfeit, hazardous, or otherwise prohibited by law. This includes but is not limited to: weapons, drugs, alcohol, tobacco, adult content, and items that infringe on intellectual property rights. You agree not to: harass or threaten other users, post false or misleading listings, use the platform for any illegal purpose, attempt to circumvent any security features, or interfere with the proper functioning of the platform.",
   },
   {
-    title: "8. Pro Subscription",
-    body: "Pocket Market Pro is a paid subscription service. By subscribing, you agree to pay the listed monthly fee. You can cancel at any time without penalty. Refunds are not provided for partial billing periods. We reserve the right to change pricing with advance notice.",
+    title: "8. Disputes Between Users",
+    body: "Pocket Market is not responsible for disputes between buyers and sellers. We do not mediate transactions, issue refunds, or resolve disagreements about item quality, pricing, or delivery. If a dispute arises, users are expected to resolve it among themselves. We may, at our discretion, investigate reports of fraud or policy violations, but we are under no obligation to intervene in any transaction.",
   },
   {
-    title: "9. Content Ownership",
-    body: "You retain ownership of content you post (photos, descriptions, etc.). By posting content, you grant Pocket Market a non-exclusive, royalty-free license to use, display, and distribute your content in connection with the platform.",
+    title: "9. Safe Meetup",
+    body: "Pocket Market provides Safe Meetup suggestions as a convenience. We recommend meeting in well-lit public places. However, we are not responsible for your safety during any in-person transaction. Always exercise caution and good judgment when meeting someone in person.",
   },
   {
-    title: "10. Limitation of Liability",
-    body: "Pocket Market is provided \"as is\" without warranties of any kind. We are not liable for any damages arising from your use of the platform, including but not limited to: lost profits, data loss, personal injury, or property damage resulting from transactions arranged through the platform.",
+    title: "10. Pro Subscription",
+    body: "Pocket Market Pro is a paid subscription service. By subscribing, you agree to pay the listed monthly fee. You can cancel at any time without penalty. Refunds are not provided for partial billing periods. We reserve the right to change pricing with advance notice. PRO status does not imply endorsement or verification by Pocket Market.",
   },
   {
-    title: "11. Termination",
-    body: "We reserve the right to suspend or terminate your account at any time for violations of these terms or for any other reason at our discretion. You may delete your account at any time by contacting support.",
+    title: "11. Content Ownership & License",
+    body: "You retain ownership of content you post (photos, descriptions, etc.). By posting content, you grant Pocket Market a non-exclusive, royalty-free license to use, display, and distribute your content in connection with operating the platform. This license ends when you delete your content or account.",
   },
   {
-    title: "12. Changes to Terms",
+    title: "12. Limitation of Liability",
+    body: "Pocket Market is provided \"as is\" without warranties of any kind, express or implied. We are not liable for any damages arising from your use of the platform, including but not limited to: lost profits, data loss, personal injury, property damage, or any loss resulting from transactions arranged through the platform. Our total liability to you for any claim shall not exceed the amount you paid to us in the twelve months preceding the claim.",
+  },
+  {
+    title: "13. Account Termination",
+    body: "We reserve the right to suspend or terminate your account at any time, with or without notice, for violations of these terms, fraudulent activity, harmful behavior toward other users, or for any other reason at our discretion. You may delete your account at any time by contacting support. Upon termination, your listings will be removed and your data will be handled according to our Privacy Policy.",
+  },
+  {
+    title: "14. Changes to Terms",
     body: "We may update these terms from time to time. Continued use of the platform after changes constitutes acceptance of the new terms. We will notify users of significant changes via the app or email.",
   },
   {
-    title: "13. Contact",
-    body: "If you have questions about these Terms of Service, please contact us through the Help & Support page in the app.",
+    title: "15. Contact",
+    body: "If you have questions about these Terms of Service, please contact us at pocketmarket.help@gmail.com or visit our Contact page.",
   },
 ];
 
