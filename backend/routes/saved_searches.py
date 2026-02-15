@@ -10,7 +10,7 @@ saved_searches_bp = Blueprint("saved_searches", __name__)
 @saved_searches_bp.get("")
 @login_required
 def get_saved():
-    rows = SavedSearch.query.filter_by(user_id=current_user.id).order_by(SavedSearch.created_at.desc()).all()
+    rows = db.session.query(SavedSearch).filter_by(user_id=current_user.id).order_by(SavedSearch.created_at.desc()).all()
     return jsonify({"saved_searches": [
         {"id": s.id, "query": s.search_query, "category": s.category, "created_at": s.created_at.isoformat()}
         for s in rows
@@ -27,7 +27,7 @@ def save_search():
     if not q:
         return jsonify({"error": "Query required"}), 400
 
-    existing = SavedSearch.query.filter_by(user_id=current_user.id, search_query=q).first()
+    existing = db.session.query(SavedSearch).filter_by(user_id=current_user.id, search_query=q).first()
     if existing:
         return jsonify({"error": "Already saved"}), 409
 
