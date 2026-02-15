@@ -83,6 +83,8 @@ def create_app():
         changed |= _add_col("users", "pro_free_boost_last_used_day", "VARCHAR(10)")
         changed |= _add_col("boosts", "boost_type", "VARCHAR(16) DEFAULT 'paid'")
         changed |= _add_col("boosts", "duration_hours", "INTEGER DEFAULT 24")
+        changed |= _add_col("listing_images", "image_data", "BYTEA")
+        changed |= _add_col("listing_images", "image_mime", "VARCHAR(32)")
         if changed:
             db.session.commit()
 

@@ -73,6 +73,8 @@ class ListingImage(db.Model):
     id = db.Column(db.String(36), primary_key=True, default=_uuid)
     listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=False, index=True)
     image_url = db.Column(db.Text, nullable=False)
+    image_data = db.Column(db.LargeBinary, nullable=True)
+    image_mime = db.Column(db.String(32), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 class Observing(db.Model):

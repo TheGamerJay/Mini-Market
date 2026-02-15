@@ -613,25 +613,41 @@ export default function Listing({ me, notify }){
                   </div>
                 )}
 
-                {/* Paid boost durations — always shown for all users */}
-                {boostDurations.length > 0 && (
-                  <>
-                    <div className="muted" style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>
-                      {boostInfo.is_pro ? "Or purchase a longer boost" : "Choose boost duration"}
+                {/* Pro: paid duration options / Non-Pro: Go Pro upsell */}
+                {boostInfo.is_pro ? (
+                  boostDurations.length > 0 && (
+                    <>
+                      <div className="muted" style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>
+                        Or purchase a longer boost
+                      </div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                        {boostDurations.map(d => (
+                          <button key={d.hours} onClick={() => activateBoost(d.hours, false)} style={{
+                            display:"flex", justifyContent:"space-between", alignItems:"center",
+                            padding:"10px 12px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                            background:"var(--panel2)", border:"1px solid var(--border)", color:"var(--text)",
+                          }}>
+                            <span style={{ fontWeight:600, fontSize:13 }}>{d.label}</span>
+                            <span style={{ fontWeight:800, fontSize:13, color:"var(--cyan)" }}>${d.price_usd}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )
+                ) : (
+                  <div style={{ textAlign:"center", padding:"8px 0" }}>
+                    <div className="muted" style={{ fontSize:13, lineHeight:1.5, marginBottom:10 }}>
+                      Boosting is a Pro feature. Upgrade to Pro to get 1 free boost every day and access paid boost options.
                     </div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                      {boostDurations.map(d => (
-                        <button key={d.hours} onClick={() => activateBoost(d.hours, false)} style={{
-                          display:"flex", justifyContent:"space-between", alignItems:"center",
-                          padding:"10px 12px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
-                          background:"var(--panel2)", border:"1px solid var(--border)", color:"var(--text)",
-                        }}>
-                          <span style={{ fontWeight:600, fontSize:13 }}>{d.label}</span>
-                          <span style={{ fontWeight:800, fontSize:13, color:"var(--cyan)" }}>${d.price_usd}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
+                    <button onClick={() => nav("/pro")} style={{
+                      width:"100%", padding:"12px 0", borderRadius:12, fontSize:14, fontWeight:800,
+                      cursor:"pointer", fontFamily:"inherit",
+                      background:"linear-gradient(135deg, rgba(62,224,255,.18), rgba(164,122,255,.18))",
+                      border:"1.5px solid rgba(62,224,255,.50)", color:"var(--cyan)",
+                    }}>
+                      Upgrade to Pro
+                    </button>
+                  </div>
                 )}
 
                 {/* Boost rules toggle */}

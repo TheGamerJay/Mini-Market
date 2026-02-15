@@ -1,7 +1,7 @@
 import os
 import uuid
 from datetime import datetime, timedelta
-from flask import Blueprint, request, jsonify, current_app, send_from_directory
+from flask import Blueprint, request, jsonify, current_app, send_from_directory, Response
 from flask_login import login_required, current_user
 
 from sqlalchemy import func
@@ -58,7 +58,21 @@ def _listing_to_dict(l: Listing):
 
 @listings_bp.get("/uploads/<path:filename>")
 def uploads(filename):
+    """Legacy fallback for filesystem-based images."""
     return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
+
+
+@listings_bp.get("/image/<image_id>")
+def serve_image(image_id):
+    """Serve listing image from database storage."""
+    img = db.session.get(ListingImage, image_id)
+    if not img or not img.image_data:
+        return jsonify({"error": "Not found"}), 404
+    return Response(
+        img.image_data,
+        mimetype=img.image_mime or "image/jpeg",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 @listings_bp.get("/mine")
 @login_required
@@ -396,21 +410,33 @@ def upload_images(listing_id):
         return jsonify({"error": f"Max {max_photos} photos{' (upgrade to Pro for 10)' if not current_user.is_pro else ''}"}), 400
 
     saved = []
-    folder = current_app.config["UPLOAD_FOLDER"]
-    os.makedirs(folder, exist_ok=True)
-
+    import tempfile
     from image_utils import compress_image
+
     for f in files:
         ext = os.path.splitext(f.filename)[1].lower()
         if ext not in [".jpg",".jpeg",".png",".webp"]:
             return jsonify({"error": "Only jpg/jpeg/png/webp allowed"}), 400
-        name = f"{uuid.uuid4().hex}{ext}"
-        path = os.path.join(folder, name)
-        f.save(path)
-        compress_image(path)
-        url = f"/api/listings/uploads/{name}"
-        db.session.add(ListingImage(listing_id=l.id, image_url=url))
-        saved.append(url)
+
+        # Compress via temp file, then store bytes in DB
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+            tmp_path = tmp.name
+            f.save(tmp_path)
+        compress_image(tmp_path)
+        with open(tmp_path, "rb") as fh:
+            image_bytes = fh.read()
+        os.unlink(tmp_path)
+
+        img_record = ListingImage(
+            listing_id=l.id,
+            image_url="",  # placeholder, updated after flush
+            image_data=image_bytes,
+            image_mime="image/jpeg",  # compress_image always saves as JPEG
+        )
+        db.session.add(img_record)
+        db.session.flush()  # get the id
+        img_record.image_url = f"/api/listings/image/{img_record.id}"
+        saved.append(img_record.image_url)
 
     db.session.commit()
     return jsonify({"ok": True, "images": saved}), 201
