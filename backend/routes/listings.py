@@ -144,8 +144,26 @@ def bulk_action():
         if action == "sold":
             l.is_sold = True
         elif action == "delete":
+            # Clean up all FK references before deleting
+            boost_ids = [b.id for b in Boost.query.filter_by(listing_id=l.id).all()]
+            if boost_ids:
+                BoostImpression.query.filter(BoostImpression.boost_id.in_(boost_ids)).delete(synchronize_session=False)
+            Boost.query.filter_by(listing_id=l.id).delete()
+            conv_ids = [c.id for c in Conversation.query.filter_by(listing_id=l.id).all()]
+            if conv_ids:
+                Message.query.filter(Message.conversation_id.in_(conv_ids)).delete(synchronize_session=False)
+            Conversation.query.filter_by(listing_id=l.id).delete()
             ListingImage.query.filter_by(listing_id=l.id).delete()
             SafeMeetLocation.query.filter_by(listing_id=l.id).delete()
+            SafetyAckEvent.query.filter_by(listing_id=l.id).delete()
+            Observing.query.filter_by(listing_id=l.id).delete()
+            Notification.query.filter_by(listing_id=l.id).delete()
+            Offer.query.filter_by(listing_id=l.id).delete()
+            PriceHistory.query.filter_by(listing_id=l.id).delete()
+            Review.query.filter_by(listing_id=l.id).delete()
+            Report.query.filter_by(listing_id=l.id).delete()
+            ListingView.query.filter_by(listing_id=l.id).delete()
+            MeetupConfirmation.query.filter_by(listing_id=l.id).delete()
             db.session.delete(l)
         elif action == "renew":
             l.renewed_at = datetime.utcnow()
