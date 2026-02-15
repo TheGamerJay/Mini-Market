@@ -305,7 +305,10 @@ function RecentlyViewed(){
   useEffect(() => {
     try {
       const recent = JSON.parse(localStorage.getItem("pm_recent") || "[]");
-      setItems(recent.slice(0, 6));
+      // Filter out entries with old broken /uploads/ image URLs
+      const valid = recent.filter(r => !r.image || !r.image.includes("/uploads/"));
+      if (valid.length !== recent.length) localStorage.setItem("pm_recent", JSON.stringify(valid));
+      setItems(valid.slice(0, 6));
     } catch {}
   }, []);
 
