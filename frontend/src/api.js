@@ -69,7 +69,8 @@ export const api = {
   activateBoost: (payload) => req("/api/boosts/activate", { method:"POST", body: payload }),
 
   billingStatus: () => req("/api/billing/status"),
-  setPro: (is_pro) => req("/api/billing/set-pro", { method:"POST", body: { is_pro } }),
+  createCheckoutSession: () => req("/api/billing/create-checkout-session", { method:"POST" }),
+  createPortalSession: () => req("/api/billing/create-portal-session", { method:"POST" }),
 
   ads: () => req("/api/ads"),
 

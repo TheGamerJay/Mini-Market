@@ -1,5 +1,5 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import TopBar from "../components/TopBar.jsx";
 import Card from "../components/Card.jsx";
 import Button from "../components/Button.jsx";
@@ -14,15 +14,48 @@ const PERKS = [
 
 export default function Pro({ me, notify, refreshMe }){
   const nav = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [loading, setLoading] = useState(false);
+  const [subInfo, setSubInfo] = useState(null);
   const isPro = me?.user?.is_pro;
 
-  const togglePro = async () => {
+  useEffect(() => {
+    if (searchParams.get("session_id")) {
+      refreshMe();
+      notify("Welcome to Pro!");
+      setSearchParams({}, { replace: true });
+    } else if (searchParams.get("canceled")) {
+      notify("Checkout canceled.");
+      setSearchParams({}, { replace: true });
+    }
+  }, []);
+
+  useEffect(() => {
+    api.billingStatus()
+      .then((data) => setSubInfo(data.subscription))
+      .catch(() => {});
+  }, [isPro]);
+
+  const handleSubscribe = async () => {
+    setLoading(true);
     try {
-      const next = !isPro;
-      await api.setPro(next);
-      await refreshMe();
-      notify(next ? "Welcome to Pro!" : "Pro canceled.");
-    } catch(err) { notify(err.message); }
+      const { url } = await api.createCheckoutSession();
+      window.location.href = url;
+    } catch (err) {
+      notify(err.message);
+      setLoading(false);
+    }
+  };
+
+  const handleManage = async () => {
+    setLoading(true);
+    try {
+      const { url } = await api.createPortalSession();
+      window.location.href = url;
+    } catch (err) {
+      notify(err.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -46,6 +79,17 @@ export default function Pro({ me, notify, refreshMe }){
               fontSize:12, fontWeight:800, color:"var(--cyan)",
             }}>
               Active
+            </div>
+          )}
+          {subInfo?.status === "past_due" && (
+            <div style={{
+              marginTop:8, display:"inline-block",
+              padding:"4px 14px", borderRadius:20,
+              background:"rgba(255,92,92,.14)",
+              border:"1px solid rgba(255,92,92,.40)",
+              fontSize:12, fontWeight:800, color:"#ff5c5c",
+            }}>
+              Payment Failed
             </div>
           )}
         </div>
@@ -79,9 +123,19 @@ export default function Pro({ me, notify, refreshMe }){
       <div style={{ height:16 }} />
 
       {isPro ? (
-        <Button variant="ghost" onClick={togglePro}>Cancel Pro</Button>
+        <Button variant="ghost" onClick={handleManage} disabled={loading}>
+          {loading ? "Loading..." : "Manage Subscription"}
+        </Button>
       ) : (
-        <Button onClick={togglePro}>Subscribe for $8/month</Button>
+        <Button onClick={handleSubscribe} disabled={loading}>
+          {loading ? "Loading..." : "Subscribe for $8/month"}
+        </Button>
+      )}
+
+      {subInfo?.current_period_end && isPro && (
+        <div className="muted" style={{ textAlign:"center", fontSize:11, marginTop:8 }}>
+          Renews {new Date(subInfo.current_period_end).toLocaleDateString()}
+        </div>
       )}
 
       <div style={{ height:12 }} />
