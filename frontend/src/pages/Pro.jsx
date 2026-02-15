@@ -6,7 +6,7 @@ import Button from "../components/Button.jsx";
 import { api } from "../api.js";
 
 const PERKS = [
-  { title: "PRO Badge", desc: "Stand out with a trusted seller badge on all your listings" },
+  { title: "PRO Badge", desc: "Stand out with a PRO seller badge on all your listings" },
   { title: "Priority Placement", desc: "Your listings appear first in search and the home feed" },
   { title: "10 Photos", desc: "Upload up to 10 photos per listing (free users get 5)" },
   { title: "No Ads", desc: "Browse the marketplace without any sponsored content" },

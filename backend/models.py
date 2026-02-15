@@ -195,7 +195,7 @@ class SavedSearch(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=_uuid)
     user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
-    query = db.Column(db.String(255), nullable=False)
+    search_query = db.Column("query", db.String(255), nullable=False)
     category = db.Column(db.String(64), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 

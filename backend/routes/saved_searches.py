@@ -12,7 +12,7 @@ saved_searches_bp = Blueprint("saved_searches", __name__)
 def get_saved():
     rows = SavedSearch.query.filter_by(user_id=current_user.id).order_by(SavedSearch.created_at.desc()).all()
     return jsonify({"saved_searches": [
-        {"id": s.id, "query": s.query, "category": s.category, "created_at": s.created_at.isoformat()}
+        {"id": s.id, "query": s.search_query, "category": s.category, "created_at": s.created_at.isoformat()}
         for s in rows
     ]}), 200
 
@@ -27,11 +27,11 @@ def save_search():
     if not q:
         return jsonify({"error": "Query required"}), 400
 
-    existing = SavedSearch.query.filter_by(user_id=current_user.id, query=q).first()
+    existing = SavedSearch.query.filter_by(user_id=current_user.id, search_query=q).first()
     if existing:
         return jsonify({"error": "Already saved"}), 409
 
-    s = SavedSearch(user_id=current_user.id, query=q, category=category)
+    s = SavedSearch(user_id=current_user.id, search_query=q, category=category)
     db.session.add(s)
     db.session.commit()
     return jsonify({"ok": True, "id": s.id}), 201
