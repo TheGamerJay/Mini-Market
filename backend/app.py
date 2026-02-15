@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from config import Config
 from extensions import db, migrate, login_manager, limiter
-from models import User
+from models import User, ListingImage, Listing
 from routes import register_blueprints
 
 load_dotenv()
@@ -95,6 +95,53 @@ def create_app():
                 "ON boosts (listing_id) WHERE status = 'active'"
             ))
             db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        # One-time cleanup: remove old broken images (filesystem URLs) and empty listings
+        try:
+            broken = ListingImage.query.filter(
+                ListingImage.image_url.like("%/uploads/%"),
+                ListingImage.image_data.is_(None),
+            ).all()
+            if broken:
+                affected_listing_ids = {img.listing_id for img in broken}
+                for img in broken:
+                    db.session.delete(img)
+                db.session.flush()
+
+                # Delete listings that now have zero images
+                from models import (
+                    Boost, BoostImpression, Conversation, Message,
+                    SafeMeetLocation, SafetyAckEvent, Observing, Notification,
+                    Offer, PriceHistory, Review, Report, ListingView, MeetupConfirmation,
+                )
+                for lid in affected_listing_ids:
+                    remaining = ListingImage.query.filter_by(listing_id=lid).count()
+                    if remaining == 0:
+                        # Cascade-delete all dependent records
+                        boost_ids = [b.id for b in Boost.query.filter_by(listing_id=lid).all()]
+                        if boost_ids:
+                            BoostImpression.query.filter(BoostImpression.boost_id.in_(boost_ids)).delete(synchronize_session=False)
+                        Boost.query.filter_by(listing_id=lid).delete()
+                        conv_ids = [c.id for c in Conversation.query.filter_by(listing_id=lid).all()]
+                        if conv_ids:
+                            Message.query.filter(Message.conversation_id.in_(conv_ids)).delete(synchronize_session=False)
+                        Conversation.query.filter_by(listing_id=lid).delete()
+                        SafeMeetLocation.query.filter_by(listing_id=lid).delete()
+                        SafetyAckEvent.query.filter_by(listing_id=lid).delete()
+                        Observing.query.filter_by(listing_id=lid).delete()
+                        Notification.query.filter_by(listing_id=lid).delete()
+                        Offer.query.filter_by(listing_id=lid).delete()
+                        PriceHistory.query.filter_by(listing_id=lid).delete()
+                        Review.query.filter_by(listing_id=lid).delete()
+                        Report.query.filter_by(listing_id=lid).delete()
+                        ListingView.query.filter_by(listing_id=lid).delete()
+                        MeetupConfirmation.query.filter_by(listing_id=lid).delete()
+                        listing = db.session.get(Listing, lid)
+                        if listing:
+                            db.session.delete(listing)
+                db.session.commit()
         except Exception:
             db.session.rollback()
 
