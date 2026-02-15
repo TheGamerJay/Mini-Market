@@ -74,8 +74,13 @@ def google_callback():
             google_sub=sub,
             display_name=name or None,
             avatar_url=picture or None,
+            is_verified=True,  # Google already verified the email
         )
         db.session.add(user)
+
+    # Google users are always verified
+    if not user.is_verified:
+        user.is_verified = True
 
     db.session.commit()
     login_user(user)

@@ -1,14 +1,15 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 
-from extensions import db
-from models import Offer, Listing, Notification, User
+from extensions import db, limiter
+from models import Offer, Listing, Notification, User, Conversation, Message
 
 offers_bp = Blueprint("offers", __name__)
 
 
 @offers_bp.post("/make")
 @login_required
+@limiter.limit("10 per minute")
 def make_offer():
     data = request.get_json(force=True)
     listing_id = data.get("listing_id")
@@ -42,6 +43,13 @@ def make_offer():
     ))
 
     db.session.commit()
+
+    try:
+        from push_utils import send_push_to_user
+        send_push_to_user(l.user_id, f"New offer on {l.title}", f"{buyer_name} offered ${amt:.0f}", url=f"/listing/{listing_id}", tag=f"offer_{offer.id}")
+    except Exception:
+        pass
+
     return jsonify({"ok": True, "offer": _offer_dict(offer)}), 201
 
 
@@ -75,7 +83,6 @@ def respond_offer(offer_id):
 
     if action == "accept":
         offer.status = "accepted"
-        # Mark listing as sold and record the buyer
         if l:
             l.is_sold = True
             l.buyer_id = offer.buyer_id
@@ -84,6 +91,30 @@ def respond_offer(offer_id):
             listing_id=offer.listing_id,
             message=f'Your offer on "{title}" was accepted!',
         ))
+
+        # Auto-create conversation between buyer and seller
+        conv = Conversation.query.filter_by(
+            listing_id=offer.listing_id,
+            buyer_id=offer.buyer_id,
+            seller_id=offer.seller_id,
+        ).first()
+        if not conv:
+            conv = Conversation(listing_id=offer.listing_id, buyer_id=offer.buyer_id, seller_id=offer.seller_id)
+            db.session.add(conv)
+            db.session.flush()
+        amt_str = f"${offer.amount_cents / 100:.2f}"
+        db.session.add(Message(
+            conversation_id=conv.id,
+            sender_id=offer.seller_id,
+            body=f"Offer accepted for {amt_str}! Use this chat to arrange your meetup. Stay safe and meet in a public place!",
+        ))
+
+        try:
+            from push_utils import send_push_to_user
+            send_push_to_user(offer.buyer_id, "Offer Accepted!", f'Your offer on "{title}" was accepted', url=f"/chat/{conv.id}", tag=f"offer_accept_{offer.id}")
+        except Exception:
+            pass
+
     elif action == "decline":
         offer.status = "declined"
         db.session.add(Notification(

@@ -29,6 +29,7 @@ class User(UserMixin, db.Model):
     is_pro = db.Column(db.Boolean, default=False)
     is_verified = db.Column(db.Boolean, default=False)
     onboarding_done = db.Column(db.Boolean, default=False)
+    last_seen = db.Column(db.DateTime(timezone=True), nullable=True)
 
     def set_password(self, pw: str) -> None:
         self.password_hash = generate_password_hash(pw)
@@ -62,6 +63,7 @@ class Listing(db.Model):
 
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     renewed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    nudged_at = db.Column(db.DateTime(timezone=True), nullable=True)
     bundle_discount_pct = db.Column(db.Integer, nullable=True)  # e.g. 10 for 10% off
 
 class ListingImage(db.Model):
@@ -265,4 +267,13 @@ class MeetupConfirmation(db.Model):
     token = db.Column(db.String(64), unique=True, nullable=False)
     buyer_confirmed = db.Column(db.Boolean, default=False)
     seller_confirmed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+
+class PushSubscription(db.Model):
+    __tablename__ = "push_subscriptions"
+    id = db.Column(db.String(36), primary_key=True, default=_uuid)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.Text, nullable=False)
+    auth = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)

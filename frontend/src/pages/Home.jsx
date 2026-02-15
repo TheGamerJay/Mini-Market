@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../components/Card.jsx";
 import { IconSearch, IconChevronRight, IconCamera, IconEye, IconBell } from "../components/Icons.jsx";
@@ -49,10 +49,13 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
   const [loadingMore, setLoadingMore] = useState(false);
   const [swipeMode, setSwipeMode] = useState(false);
   const nav = useNavigate();
+  const sentinelRef = useRef(null);
+  const hasMoreRef = useRef(false);
+  const loadingMoreRef = useRef(false);
 
   const loadFeed = async (reset = true) => {
     if (reset) setBusy(true);
-    else setLoadingMore(true);
+    else { setLoadingMore(true); loadingMoreRef.current = true; }
     const p = reset ? 1 : page + 1;
     try{
       const [feed, feat, adRes] = await Promise.all([
@@ -68,15 +71,35 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
       }
       setPage(p);
       setHasMore(feed.has_more || false);
+      hasMoreRef.current = feed.has_more || false;
     }catch(err){
       notify(err.message);
     }finally{
       setBusy(false);
       setLoadingMore(false);
+      loadingMoreRef.current = false;
     }
   };
 
+  const loadMoreRef = useRef(loadFeed);
+  loadMoreRef.current = loadFeed;
+
   useEffect(() => { loadFeed(); }, []);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMoreRef.current && !loadingMoreRef.current) {
+          loadMoreRef.current(false);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   const featured = listings.filter(l => featuredIds.includes(l.id));
   const filtered = activeCategory === "All"
@@ -265,16 +288,11 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
         ))}
       </div>
 
-      {/* ── Load more ── */}
-      {hasMore && (
+      {/* ── Infinite scroll sentinel ── */}
+      <div ref={sentinelRef} style={{ height:1 }} />
+      {loadingMore && (
         <div style={{ display:"flex", justifyContent:"center", padding:"14px 0" }}>
-          <button onClick={() => loadFeed(false)} disabled={loadingMore} style={{
-            padding:"10px 28px", borderRadius:20, fontSize:13, fontWeight:700,
-            cursor:"pointer", fontFamily:"inherit",
-            background:"var(--panel)", border:"1px solid var(--border)", color:"var(--cyan)",
-          }}>
-            {loadingMore ? "Loading..." : "Load More"}
-          </button>
+          <span className="muted" style={{ fontSize:13 }}>Loading...</span>
         </div>
       )}
 

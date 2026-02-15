@@ -4,12 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pocket Market</title>
+    <meta name="description" content="Buy and sell locally, instantly. Pocket Market is the simple, fast way to find deals near you." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Pocket Market" />
+    <meta property="og:description" content="Buy and sell locally, instantly." />
+    <meta property="og:image" content="https://pocket-market.com/pocketmarket_favicon_transparent_512x512.png" />
+    <meta property="og:url" content="https://pocket-market.com" />
+    <meta property="og:site_name" content="Pocket Market" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Pocket Market" />
+    <meta name="twitter:description" content="Buy and sell locally, instantly." />
+    <meta name="twitter:image" content="https://pocket-market.com/pocketmarket_favicon_transparent_512x512.png" />
     <link rel="icon" type="image/x-icon" href="/pocketmarket_favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/pocketmarket_favicon_transparent_32x32.png" />
     <link rel="apple-touch-icon" sizes="128x128" href="/pocketmarket_favicon_transparent_128x128.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#3ee0ff" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+    </script>
   </body>
 </html>

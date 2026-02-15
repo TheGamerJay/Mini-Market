@@ -1,0 +1,27 @@
+{
+  "name": "Pocket Market",
+  "short_name": "Pocket Market",
+  "description": "Buy and sell locally, instantly.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#3ee0ff",
+  "icons": [
+    {
+      "src": "/pocketmarket_favicon_transparent_32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/pocketmarket_favicon_transparent_128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/pocketmarket_favicon_transparent_512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

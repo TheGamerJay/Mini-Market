@@ -1,23 +1,29 @@
 import os
 import uuid
+from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, current_app, send_from_directory, Response
 from flask_login import login_user, logout_user, login_required, current_user
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
-from extensions import db
+from extensions import db, limiter
 from models import User
-from email_utils import send_welcome
+from email_utils import send_welcome, send_password_reset, send_verification_email
 
 auth_bp = Blueprint("auth", __name__)
 
 def _serializer():
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt=current_app.config["RESET_TOKEN_SALT"])
 
+def _verify_serializer():
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="email-verify")
+
 @auth_bp.get("/me")
 def me():
     if not current_user.is_authenticated:
         return jsonify({"authenticated": False}), 200
+    current_user.last_seen = datetime.now(timezone.utc)
+    db.session.commit()
     return jsonify({
         "authenticated": True,
         "user": {
@@ -25,6 +31,7 @@ def me():
             "email": current_user.email,
             "display_name": current_user.display_name,
             "is_pro": current_user.is_pro,
+            "is_verified": current_user.is_verified,
             "avatar_url": current_user.avatar_url,
             "onboarding_done": current_user.onboarding_done,
         }
@@ -38,6 +45,7 @@ def onboarding_done():
     return jsonify({"ok": True}), 200
 
 @auth_bp.post("/signup")
+@limiter.limit("5 per minute")
 def signup():
     data = request.get_json(force=True)
     email = (data.get("email") or "").strip().lower()
@@ -60,9 +68,15 @@ def signup():
         send_welcome(u.email, display_name)
     except Exception:
         pass
+    try:
+        token = _verify_serializer().dumps({"user_id": u.id})
+        send_verification_email(u.email, display_name, token)
+    except Exception:
+        pass
     return jsonify({"ok": True, "user": {"id": u.id, "email": u.email, "display_name": u.display_name}}), 201
 
 @auth_bp.post("/login")
+@limiter.limit("5 per minute")
 def login():
     data = request.get_json(force=True)
     email = (data.get("email") or "").strip().lower()
@@ -110,6 +124,7 @@ def serve_avatar(user_id):
 
 
 @auth_bp.post("/forgot")
+@limiter.limit("3 per minute")
 def forgot():
     data = request.get_json(force=True)
     email = (data.get("email") or "").strip().lower()
@@ -119,7 +134,12 @@ def forgot():
         return jsonify({"ok": True}), 200
 
     token = _serializer().dumps({"user_id": u.id})
-    return jsonify({"ok": True, "reset_token": token}), 200
+    try:
+        send_password_reset(u.email, u.display_name, token)
+    except Exception as e:
+        current_app.logger.error(f"Failed to send reset email: {e}")
+
+    return jsonify({"ok": True}), 200
 
 @auth_bp.post("/reset")
 def reset():
@@ -147,3 +167,36 @@ def reset():
     u.set_password(new_password)
     db.session.commit()
     return jsonify({"ok": True}), 200
+
+
+@auth_bp.post("/send-verification")
+@login_required
+def send_verification():
+    if current_user.is_verified:
+        return jsonify({"error": "Already verified"}), 400
+    token = _verify_serializer().dumps({"user_id": current_user.id})
+    try:
+        send_verification_email(current_user.email, current_user.display_name, token)
+    except Exception as e:
+        current_app.logger.error(f"Failed to send verification: {e}")
+        return jsonify({"error": "Failed to send email"}), 500
+    return jsonify({"ok": True}), 200
+
+
+@auth_bp.get("/verify")
+def verify_email():
+    token = request.args.get("token", "")
+    if not token:
+        return jsonify({"error": "Token required"}), 400
+    try:
+        payload = _verify_serializer().loads(token, max_age=86400 * 7)
+    except SignatureExpired:
+        return jsonify({"error": "Verification link expired"}), 400
+    except BadSignature:
+        return jsonify({"error": "Invalid verification link"}), 400
+    u = db.session.get(User, payload["user_id"])
+    if not u:
+        return jsonify({"error": "User not found"}), 404
+    u.is_verified = True
+    db.session.commit()
+    return jsonify({"ok": True, "message": "Email verified!"}), 200

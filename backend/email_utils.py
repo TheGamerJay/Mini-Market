@@ -248,3 +248,116 @@ def notify_report(reporter_email, reported_email, listing_title, listing_id, rea
         </div>
         """,
     )
+
+
+# ── New email templates ─────────────────────────────────────────
+
+
+def send_password_reset(email, display_name, token):
+    name = display_name or "there"
+    link = f"https://pocket-market.com/reset?token={token}"
+    send_email(
+        to=email,
+        subject="Reset your Pocket Market password",
+        reply_to=SUPPORT_EMAIL,
+        body_html=_wrap(f"""
+            <h2 style="color:{BRAND_COLOR};margin-top:0;">Password Reset</h2>
+            <p>Hi {name},</p>
+            <p>We received a request to reset your password. Click the button below to choose a new one:</p>
+            <div style="text-align:center;margin:24px 0;">
+                <a href="{link}" style="display:inline-block;background:{BRAND_COLOR};color:#000;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:15px;">Reset Password</a>
+            </div>
+            <p style="font-size:13px;color:#666;">This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+        """),
+    )
+
+
+def send_verification_email(email, display_name, token):
+    name = display_name or "there"
+    link = f"https://pocket-market.com/verify?token={token}"
+    send_email(
+        to=email,
+        subject="Verify your Pocket Market email",
+        reply_to=SUPPORT_EMAIL,
+        body_html=_wrap(f"""
+            <h2 style="color:{BRAND_COLOR};margin-top:0;">Verify Your Email</h2>
+            <p>Hi {name},</p>
+            <p>Please verify your email address to unlock your verified badge and full access to Pocket Market.</p>
+            <div style="text-align:center;margin:24px 0;">
+                <a href="{link}" style="display:inline-block;background:{BRAND_COLOR};color:#000;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:15px;">Verify Email</a>
+            </div>
+            <p style="font-size:13px;color:#666;">This link expires in 7 days.</p>
+        """),
+    )
+
+
+def send_message_notification(recipient_email, recipient_name, sender_name, listing_title, conversation_id):
+    name = recipient_name or "there"
+    sender = sender_name or "Someone"
+    listing = listing_title or "a listing"
+    link = f"https://pocket-market.com/chat/{conversation_id}"
+    send_email(
+        to=recipient_email,
+        subject=f"{sender} sent you a message on Pocket Market",
+        reply_to=SUPPORT_EMAIL,
+        body_html=_wrap(f"""
+            <h2 style="color:{BRAND_COLOR};margin-top:0;">New Message</h2>
+            <p>Hi {name},</p>
+            <p><strong>{sender}</strong> sent you a message about <strong>{listing}</strong>.</p>
+            <div style="text-align:center;margin:24px 0;">
+                <a href="{link}" style="display:inline-block;background:{BRAND_COLOR};color:#000;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:15px;">View Message</a>
+            </div>
+            <p style="font-size:13px;color:#666;">You're receiving this because you haven't been online recently.</p>
+        """),
+    )
+
+
+def send_price_drop_alert(observer_email, observer_name, listing_title, listing_id, old_price_cents, new_price_cents):
+    name = observer_name or "there"
+    old_price = f"${old_price_cents / 100:.2f}"
+    new_price = f"${new_price_cents / 100:.2f}"
+    link = f"https://pocket-market.com/listing/{listing_id}"
+    send_email(
+        to=observer_email,
+        subject=f"Price drop! {listing_title} is now {new_price}",
+        reply_to=SUPPORT_EMAIL,
+        body_html=_wrap(f"""
+            <h2 style="color:{BRAND_COLOR};margin-top:0;">Price Drop Alert</h2>
+            <p>Hi {name},</p>
+            <p>An item you're watching just got cheaper!</p>
+            <div style="background:#f8f8f8;padding:16px;border-radius:8px;margin:16px 0;text-align:center;">
+                <div style="font-weight:700;font-size:16px;margin-bottom:8px;">{listing_title}</div>
+                <span style="text-decoration:line-through;color:#999;font-size:14px;">{old_price}</span>
+                <span style="font-size:20px;font-weight:800;color:#27ae60;margin-left:8px;">{new_price}</span>
+            </div>
+            <div style="text-align:center;margin:24px 0;">
+                <a href="{link}" style="display:inline-block;background:{BRAND_COLOR};color:#000;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:15px;">View Listing</a>
+            </div>
+        """),
+    )
+
+
+def send_stale_listing_nudge(seller_email, seller_name, listing_title, listing_id, days_old):
+    name = seller_name or "there"
+    link = f"https://pocket-market.com/listing/{listing_id}"
+    send_email(
+        to=seller_email,
+        subject=f"Your listing \"{listing_title}\" hasn't had any offers",
+        reply_to=SUPPORT_EMAIL,
+        body_html=_wrap(f"""
+            <h2 style="color:{BRAND_COLOR};margin-top:0;">Time for a Price Check?</h2>
+            <p>Hi {name},</p>
+            <p>Your listing <strong>{listing_title}</strong> has been up for <strong>{days_old} days</strong> without any offers.</p>
+            <div style="background:#f8f8f8;border-left:3px solid {BRAND_COLOR};padding:12px 16px;margin:20px 0;border-radius:4px;">
+                <p style="margin:0;font-size:14px;"><strong>Quick tips to sell faster:</strong></p>
+                <ul style="margin:8px 0 0;padding-left:20px;font-size:13px;color:#666;line-height:1.8;">
+                    <li>Lower the price to attract offers</li>
+                    <li>Add more photos from different angles</li>
+                    <li>Update the description with more details</li>
+                </ul>
+            </div>
+            <div style="text-align:center;margin:24px 0;">
+                <a href="{link}" style="display:inline-block;background:{BRAND_COLOR};color:#000;font-weight:600;padding:12px 32px;border-radius:8px;text-decoration:none;font-size:15px;">Edit Listing</a>
+            </div>
+        """),
+    )

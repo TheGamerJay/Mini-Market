@@ -1,11 +1,39 @@
 import os, uuid
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 
-from extensions import db
+from extensions import db, limiter
 from models import Conversation, Message, Listing, User, ListingImage
 
 messages_bp = Blueprint("messages", __name__)
+
+
+def _notify_recipient(conversation, sender_name, body):
+    """Send email + push notification to the other party if they're offline."""
+    recipient_id = conversation.seller_id if conversation.buyer_id == current_user.id else conversation.buyer_id
+    recipient = db.session.get(User, recipient_id)
+    if not recipient:
+        return
+
+    listing = db.session.get(Listing, conversation.listing_id)
+    listing_title = listing.title if listing else "item"
+
+    # Email if offline 5+ minutes
+    if not recipient.last_seen or datetime.now(timezone.utc) - recipient.last_seen > timedelta(minutes=5):
+        try:
+            from email_utils import send_message_notification
+            send_message_notification(recipient.email, recipient.display_name, sender_name, listing_title, conversation.id)
+        except Exception:
+            pass
+
+    # Push notification
+    try:
+        from push_utils import send_push_to_user
+        send_push_to_user(recipient_id, f"Message from {sender_name}", body[:100], url=f"/chat/{conversation.id}", tag=f"msg_{conversation.id}")
+    except Exception:
+        pass
+
 
 @messages_bp.post("/start")
 @login_required
@@ -93,6 +121,7 @@ def get_messages(conversation_id):
 
 @messages_bp.post("/<conversation_id>")
 @login_required
+@limiter.limit("30 per minute")
 def send_message(conversation_id):
     c = db.session.get(Conversation, conversation_id)
     if not c:
@@ -109,11 +138,14 @@ def send_message(conversation_id):
     db.session.add(m)
     db.session.commit()
 
+    _notify_recipient(c, current_user.display_name or current_user.email, body)
+
     return jsonify({"ok": True, "message_id": m.id}), 201
 
 
 @messages_bp.post("/<conversation_id>/image")
 @login_required
+@limiter.limit("30 per minute")
 def send_chat_image(conversation_id):
     c = db.session.get(Conversation, conversation_id)
     if not c:
@@ -134,10 +166,16 @@ def send_chat_image(conversation_id):
     name = f"{uuid.uuid4().hex}{ext}"
     path = os.path.join(folder, name)
     f.save(path)
+
+    from image_utils import compress_image
+    compress_image(path)
+
     url = f"/api/listings/uploads/{name}"
 
     m = Message(conversation_id=conversation_id, sender_id=current_user.id, body="[Image]", image_url=url)
     db.session.add(m)
     db.session.commit()
+
+    _notify_recipient(c, current_user.display_name or current_user.email, "[Image]")
 
     return jsonify({"ok": True, "message_id": m.id, "image_url": url}), 201

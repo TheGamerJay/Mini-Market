@@ -26,12 +26,43 @@ import SellerProfile from "./pages/SellerProfile.jsx";
 import Purchases from "./pages/Purchases.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 import MeetupConfirm from "./pages/MeetupConfirm.jsx";
+import Verify from "./pages/Verify.jsx";
 
 // Apply stored theme on load
 (function(){
   const t = localStorage.getItem("pm_theme");
   if (t) document.documentElement.setAttribute("data-theme", t);
 })();
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function registerPush() {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) return;
+    const res = await api.getVapidKey();
+    const key = res.public_key;
+    if (!key) return;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key),
+    });
+    const subJson = sub.toJSON();
+    await api.subscribePush({
+      endpoint: subJson.endpoint,
+      keys: { p256dh: subJson.keys.p256dh, auth: subJson.keys.auth },
+    });
+  } catch {}
+}
 
 function RequireAuth({ authed, loading, children }){
   const loc = useLocation();
@@ -56,6 +87,16 @@ export default function App(){
       }
     })();
   }, []);
+
+  // Register push notifications after auth
+  useEffect(() => {
+    if (!me.authed) return;
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().then((p) => { if (p === "granted") registerPush(); });
+    } else if ("Notification" in window && Notification.permission === "granted") {
+      registerPush();
+    }
+  }, [me.authed]);
 
   useEffect(() => {
     if (!me.authed) return;
@@ -85,7 +126,7 @@ export default function App(){
   };
 
   const loc = useLocation();
-  const authPages = ["/login", "/signup", "/forgot", "/reset"];
+  const authPages = ["/login", "/signup", "/forgot", "/reset", "/verify"];
   const hideNav = authPages.includes(loc.pathname);
 
   return (
@@ -169,6 +210,7 @@ export default function App(){
           }/>
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/verify" element={<Verify notify={notify} />} />
 
           <Route path="/login" element={<Login notify={notify} refreshMe={refreshMe} />} />
           <Route path="/signup" element={<Signup notify={notify} />} />

@@ -29,3 +29,11 @@ class Config:
     # Resend (transactional email)
     RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
     RESEND_FROM = os.getenv("RESEND_FROM", "Pocket Market <noreply@pocket-market.com>")
+
+    # Web Push (VAPID)
+    VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+    VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+    VAPID_CLAIMS = {"sub": "mailto:pocketmarket.help@gmail.com"}
+
+    # Cron auth
+    CRON_SECRET = os.getenv("CRON_SECRET", "dev-secret-change-me")

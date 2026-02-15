@@ -334,12 +334,27 @@ def update_listing(listing_id):
             messages.append(f'"{l.title}" is available again!')
 
     if messages:
+        is_price_drop = "price_cents" in data and l.price_cents < old_price
         observers = Observing.query.filter_by(listing_id=l.id).all()
         for obs in observers:
             if obs.user_id == current_user.id:
                 continue
             for msg in messages:
                 db.session.add(Notification(user_id=obs.user_id, listing_id=l.id, message=msg))
+            if is_price_drop:
+                obs_user = db.session.get(User, obs.user_id)
+                if obs_user:
+                    try:
+                        from email_utils import send_price_drop_alert
+                        send_price_drop_alert(obs_user.email, obs_user.display_name, l.title, l.id, old_price, l.price_cents)
+                    except Exception:
+                        pass
+                    try:
+                        from push_utils import send_push_to_user
+                        new_d = l.price_cents / 100
+                        send_push_to_user(obs.user_id, "Price Drop!", f"{l.title} dropped to ${new_d:.2f}", url=f"/listing/{l.id}", tag=f"price_drop_{l.id}")
+                    except Exception:
+                        pass
         db.session.commit()
 
     return jsonify({"ok": True, "listing": _listing_to_dict(l)}), 200
@@ -384,6 +399,7 @@ def upload_images(listing_id):
     folder = current_app.config["UPLOAD_FOLDER"]
     os.makedirs(folder, exist_ok=True)
 
+    from image_utils import compress_image
     for f in files:
         ext = os.path.splitext(f.filename)[1].lower()
         if ext not in [".jpg",".jpeg",".png",".webp"]:
@@ -391,6 +407,7 @@ def upload_images(listing_id):
         name = f"{uuid.uuid4().hex}{ext}"
         path = os.path.join(folder, name)
         f.save(path)
+        compress_image(path)
         url = f"/api/listings/uploads/{name}"
         db.session.add(ListingImage(listing_id=l.id, image_url=url))
         saved.append(url)

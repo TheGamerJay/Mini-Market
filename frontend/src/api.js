@@ -112,4 +112,13 @@ export const api = {
   confirmMeetup: (token) => req(`/api/listings/meetup-confirm/${token}`, { method:"POST" }),
 
   supportContact: (payload) => req("/api/support/contact", { method:"POST", body: payload }),
+
+  // Email verification
+  sendVerification: () => req("/api/auth/send-verification", { method:"POST" }),
+  verifyEmail: (token) => req(`/api/auth/verify?token=${encodeURIComponent(token)}`),
+
+  // Web Push
+  getVapidKey: () => req("/api/push/vapid"),
+  subscribePush: (subscription) => req("/api/push/subscribe", { method:"POST", body: subscription }),
+  unsubscribePush: (endpoint) => req("/api/push/unsubscribe", { method:"DELETE", body: { endpoint } }),
 };

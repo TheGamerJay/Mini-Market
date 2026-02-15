@@ -1,12 +1,14 @@
 from flask import Blueprint, request, jsonify
 from flask_login import current_user
 
+from extensions import limiter
 from email_utils import send_support_auto_reply, notify_support_contact
 
 support_bp = Blueprint("support", __name__)
 
 
 @support_bp.post("/contact")
+@limiter.limit("3 per minute")
 def contact():
     data = request.get_json(force=True)
     email = (data.get("email") or "").strip()
