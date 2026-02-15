@@ -13,6 +13,8 @@ from .saved_searches import saved_searches_bp
 from .users import users_bp
 from .reviews import reviews_bp
 from .support import support_bp
+from .push import push_bp
+from .cron import cron_bp
 
 def register_blueprints(app):
     init_oauth(app)
@@ -31,3 +33,5 @@ def register_blueprints(app):
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(reviews_bp, url_prefix="/api/reviews")
     app.register_blueprint(support_bp, url_prefix="/api/support")
+    app.register_blueprint(push_bp, url_prefix="/api/push")
+    app.register_blueprint(cron_bp, url_prefix="/api/cron")
