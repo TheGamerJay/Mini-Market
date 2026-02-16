@@ -139,9 +139,14 @@ def delete_user(user_id):
             db.session.execute(text(stmt), {"lid": lid})
         db.session.delete(listing)
 
+    # Nullify buyer_id on other people's listings where this user was the buyer
+    db.session.execute(text("UPDATE listings SET buyer_id=NULL WHERE buyer_id=:uid"), {"uid": uid})
+
     # Delete user-level data (order matters for FK constraints)
     for stmt in [
         "DELETE FROM boost_impressions WHERE viewer_user_id=:uid",
+        # Delete ALL messages in conversations involving this user (not just sender)
+        "DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE buyer_id=:uid OR seller_id=:uid)",
         "DELETE FROM messages WHERE sender_id=:uid",
         "DELETE FROM conversations WHERE buyer_id=:uid OR seller_id=:uid",
         "DELETE FROM observing WHERE user_id=:uid",
@@ -154,7 +159,7 @@ def delete_user(user_id):
         "DELETE FROM subscriptions WHERE user_id=:uid",
         "DELETE FROM push_subscriptions WHERE user_id=:uid",
         "DELETE FROM blocked_users WHERE blocker_id=:uid OR blocked_id=:uid",
-        "DELETE FROM listing_views WHERE user_id=:uid",
+        "DELETE FROM listing_views WHERE viewer_id=:uid",
     ]:
         db.session.execute(text(stmt), {"uid": uid})
 
