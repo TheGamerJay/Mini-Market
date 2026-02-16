@@ -1,4 +1,5 @@
 import os, re
+from datetime import datetime, timezone
 from flask import Flask, jsonify, send_from_directory, request, make_response
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -200,6 +201,16 @@ def create_app():
         if path in ("/api/auth/logout", "/api/auth/me"):
             return
         return jsonify({"error": "Your account has been suspended"}), 403
+
+    @app.before_request
+    def _update_last_seen():
+        if not current_user.is_authenticated:
+            return
+        now = datetime.now(timezone.utc)
+        # Only write to DB at most once per minute to avoid excessive writes
+        if not current_user.last_seen or (now - current_user.last_seen).total_seconds() > 60:
+            current_user.last_seen = now
+            db.session.commit()
 
     @app.get("/api/health")
     def health():

@@ -6,6 +6,16 @@ import Card from "../components/Card.jsx";
 
 const TABS = ["Dashboard", "Users", "Listings", "Reports", "Reviews", "Ads"];
 
+function onlineStatus(lastSeen) {
+  if (!lastSeen) return { text: "Never", color: "var(--muted)", online: false };
+  const diff = (Date.now() - new Date(lastSeen).getTime()) / 1000;
+  if (diff < 120) return { text: "Online", color: "#50dc64", online: true };
+  if (diff < 3600) return { text: `${Math.floor(diff / 60)}m ago`, color: "var(--muted)", online: false };
+  if (diff < 86400) return { text: `${Math.floor(diff / 3600)}h ago`, color: "var(--muted)", online: false };
+  const days = Math.floor(diff / 86400);
+  return { text: days === 1 ? "1 day ago" : `${days}d ago`, color: "var(--muted)", online: false };
+}
+
 /* ── tiny helpers ── */
 const Pill = ({ label, active, onClick }) => (
   <button onClick={onClick} style={{
@@ -114,7 +124,15 @@ function UsersTab() {
             <div>
               <div style={{ fontSize: 13, fontWeight: 700 }}>{u.display_name || "—"}</div>
               <div className="muted" style={{ fontSize: 11 }}>{u.email}</div>
-              <div className="muted" style={{ fontSize: 10, marginTop: 2 }}>Joined {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                <span className="muted" style={{ fontSize: 10 }}>Joined {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</span>
+                {(() => { const s = onlineStatus(u.last_seen); return (
+                  <span style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 3 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.online ? "#50dc64" : "var(--muted)", display: "inline-block", flexShrink: 0 }} />
+                    <span style={{ color: s.color }}>{s.text}</span>
+                  </span>
+                ); })()}
+              </div>
               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                 {u.is_pro && <span style={{ fontSize: 9, background: "rgba(62,224,255,.15)", color: "var(--cyan)", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>PRO</span>}
                 {u.is_verified && <span style={{ fontSize: 9, background: "rgba(80,220,100,.15)", color: "#50dc64", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>VERIFIED</span>}

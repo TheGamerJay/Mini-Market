@@ -80,6 +80,7 @@ def list_users():
         "users": [{
             "id": u.id, "email": u.email, "display_name": u.display_name,
             "created_at": u.created_at.isoformat() if u.created_at else None,
+            "last_seen": u.last_seen.isoformat() if u.last_seen else None,
             "is_pro": bool(u.is_pro), "is_verified": bool(u.is_verified),
             "is_banned": bool(getattr(u, "is_banned", False)),
             "is_admin": bool(getattr(u, "is_admin", False)),
