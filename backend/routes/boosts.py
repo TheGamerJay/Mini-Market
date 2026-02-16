@@ -116,11 +116,10 @@ def boost_rules():
     """Return boost rules for display in the UI."""
     return jsonify({
         "rules": [
-            "Boosting is a Pro-only feature.",
+            "Anyone can purchase a boost (24h, 3-day, or 7-day).",
             "Pro members get 1 free 24-hour boost every day.",
             "Free boosts reset at midnight UTC — use it or lose it.",
             "Only 1 active boost per listing at a time.",
-            "Pro members can also purchase longer boosts (24h, 3-day, or 7-day).",
             "Boosted listings appear in the Featured section on the home page.",
         ]
     }), 200
@@ -202,9 +201,6 @@ def create_boost_checkout():
     data = request.get_json(force=True)
     listing_id = data.get("listing_id")
     hours = int(data.get("hours") or 0)
-
-    if not current_user.is_pro:
-        return jsonify({"error": "Upgrade to Pro to boost listings"}), 403
 
     if hours not in DURATION_CONFIG:
         return jsonify({"error": "Invalid duration"}), 400
