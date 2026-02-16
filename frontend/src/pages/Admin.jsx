@@ -410,13 +410,55 @@ function AdsTab() {
 export default function Admin({ me }) {
   const nav = useNavigate();
   const [tab, setTab] = useState("Dashboard");
+  const [hasAccess, setHasAccess] = useState(me?.user?.is_admin || !!localStorage.getItem("pm_admin_secret"));
+  const [secret, setSecret] = useState("");
+  const [loginErr, setLoginErr] = useState("");
+  const [checking, setChecking] = useState(false);
 
-  if (!me?.user?.is_admin) {
+  // If user has stored secret but not is_admin, verify it still works on mount
+  useEffect(() => {
+    if (!me?.user?.is_admin && localStorage.getItem("pm_admin_secret")) {
+      api.adminDashboard().then(() => setHasAccess(true)).catch(() => {
+        localStorage.removeItem("pm_admin_secret");
+        setHasAccess(false);
+      });
+    }
+  }, []);
+
+  const handleLogin = async () => {
+    if (!secret.trim()) return;
+    setChecking(true); setLoginErr("");
+    localStorage.setItem("pm_admin_secret", secret.trim());
+    try {
+      await api.adminDashboard();
+      setHasAccess(true);
+    } catch {
+      localStorage.removeItem("pm_admin_secret");
+      setLoginErr("Invalid admin secret");
+    }
+    setChecking(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("pm_admin_secret");
+    setHasAccess(false); setSecret("");
+  };
+
+  if (!hasAccess) {
     return (
       <>
         <TopBar title="Admin" onBack={() => nav("/")} />
-        <div style={{ textAlign: "center", padding: 60, color: "var(--muted)", fontSize: 14 }}>
-          You don't have access to this page.
+        <div style={{ padding: "60px 20px", maxWidth: 340, margin: "0 auto" }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, textAlign: "center" }}>Enter Admin Secret</div>
+          <input type="password" value={secret} onChange={e => setSecret(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleLogin()}
+            placeholder="Admin secret..."
+            style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg2)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", marginBottom: 10 }} />
+          {loginErr && <div style={{ color: "#ff4444", fontSize: 12, marginBottom: 8, textAlign: "center" }}>{loginErr}</div>}
+          <button onClick={handleLogin} disabled={checking}
+            style={{ width: "100%", padding: "12px 0", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 14, background: "linear-gradient(135deg, var(--cyan), var(--violet))", color: "#fff", opacity: checking ? 0.6 : 1 }}>
+            {checking ? "Checking..." : "Login"}
+          </button>
         </div>
       </>
     );
@@ -426,8 +468,11 @@ export default function Admin({ me }) {
     <>
       <TopBar title="Admin Panel" onBack={() => nav("/")} />
       <div style={{ height: 8 }} />
-      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, marginBottom: 10 }}>
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2, marginBottom: 10, alignItems: "center" }}>
         {TABS.map(t => <Pill key={t} label={t} active={tab === t} onClick={() => setTab(t)} />)}
+        {!me?.user?.is_admin && (
+          <button onClick={handleLogout} style={{ marginLeft: "auto", padding: "4px 10px", borderRadius: 8, fontSize: 10, fontWeight: 700, border: "none", cursor: "pointer", background: "rgba(255,60,60,.15)", color: "#ff4444", whiteSpace: "nowrap", flexShrink: 0 }}>Logout</button>
+        )}
       </div>
       {tab === "Dashboard" && <DashboardTab />}
       {tab === "Users" && <UsersTab />}

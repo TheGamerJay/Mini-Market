@@ -1,7 +1,7 @@
 from functools import wraps
 from datetime import datetime, timezone, timedelta
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from sqlalchemy import text, func
 
@@ -15,9 +15,15 @@ def admin_required(f):
     @wraps(f)
     @login_required
     def decorated(*args, **kwargs):
-        if not getattr(current_user, "is_admin", False):
-            return jsonify({"error": "Admin access required"}), 403
-        return f(*args, **kwargs)
+        # Allow if user has is_admin flag
+        if getattr(current_user, "is_admin", False):
+            return f(*args, **kwargs)
+        # Allow if valid admin secret provided (lets admin use any account)
+        secret = request.headers.get("X-Admin-Secret", "")
+        cron = current_app.config.get("CRON_SECRET", "")
+        if secret and cron and secret == cron:
+            return f(*args, **kwargs)
+        return jsonify({"error": "Admin access required"}), 403
     return decorated
 
 
