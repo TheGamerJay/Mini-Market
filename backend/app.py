@@ -92,6 +92,11 @@ def create_app():
         changed |= _add_col("listing_images", "image_mime", "VARCHAR(32)")
         changed |= _add_col("reports", "listing_id", "VARCHAR(36) REFERENCES listings(id)")
         changed |= _add_col("users", "is_test_account", "BOOLEAN DEFAULT FALSE")
+        changed |= _add_col("users", "is_admin", "BOOLEAN DEFAULT FALSE")
+        changed |= _add_col("users", "is_banned", "BOOLEAN DEFAULT FALSE")
+        changed |= _add_col("reports", "admin_notes", "TEXT")
+        changed |= _add_col("reports", "resolved_by", "VARCHAR(36)")
+        changed |= _add_col("reports", "resolved_at", "TIMESTAMP WITH TIME ZONE")
         if changed:
             db.session.commit()
 
@@ -150,6 +155,14 @@ def create_app():
         except Exception:
             db.session.rollback()
 
+        # Bootstrap admin: promote ADMIN_EMAIL user to is_admin on startup
+        admin_email = os.getenv("ADMIN_EMAIL", "").strip().lower()
+        if admin_email:
+            admin_user = User.query.filter_by(email=admin_email).first()
+            if admin_user and not admin_user.is_admin:
+                admin_user.is_admin = True
+                db.session.commit()
+
     @login_manager.user_loader
     def load_user(user_id):
         return db.session.get(User, user_id)
@@ -174,6 +187,17 @@ def create_app():
         if path in ("/api/auth/login", "/api/auth/logout", "/api/auth/me"):
             return
         return jsonify({"error": "This is a read-only review account"}), 403
+
+    @app.before_request
+    def _block_banned_users():
+        if not current_user.is_authenticated:
+            return
+        if not getattr(current_user, "is_banned", False):
+            return
+        path = request.path
+        if path in ("/api/auth/logout", "/api/auth/me"):
+            return
+        return jsonify({"error": "Your account has been suspended"}), 403
 
     @app.get("/api/health")
     def health():

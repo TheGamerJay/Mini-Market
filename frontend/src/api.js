@@ -124,4 +124,21 @@ export const api = {
   getVapidKey: () => req("/api/push/vapid"),
   subscribePush: (subscription) => req("/api/push/subscribe", { method:"POST", body: subscription }),
   unsubscribePush: (endpoint) => req("/api/push/unsubscribe", { method:"DELETE", body: { endpoint } }),
+
+  // Admin
+  adminDashboard: () => req("/api/admin/dashboard"),
+  adminUsers: (params) => req(`/api/admin/users?${new URLSearchParams(params)}`),
+  adminBanUser: (id) => req(`/api/admin/users/${id}/ban`, { method:"POST" }),
+  adminTogglePro: (id) => req(`/api/admin/users/${id}/toggle-pro`, { method:"POST" }),
+  adminToggleVerified: (id) => req(`/api/admin/users/${id}/toggle-verified`, { method:"POST" }),
+  adminListings: (params) => req(`/api/admin/listings?${new URLSearchParams(params)}`),
+  adminDeleteListing: (id) => req(`/api/admin/listings/${id}`, { method:"DELETE" }),
+  adminReports: (params) => req(`/api/admin/reports?${new URLSearchParams(params)}`),
+  adminResolveReport: (id, payload) => req(`/api/admin/reports/${id}/resolve`, { method:"POST", body: payload }),
+  adminReviews: (params) => req(`/api/admin/reviews?${new URLSearchParams(params)}`),
+  adminDeleteReview: (id) => req(`/api/admin/reviews/${id}`, { method:"DELETE" }),
+  adminAds: () => req("/api/admin/ads"),
+  adminCreateAd: (payload) => req("/api/admin/ads", { method:"POST", body: payload }),
+  adminUpdateAd: (id, payload) => req(`/api/admin/ads/${id}`, { method:"PUT", body: payload }),
+  adminDeleteAd: (id) => req(`/api/admin/ads/${id}`, { method:"DELETE" }),
 };

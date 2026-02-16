@@ -30,6 +30,8 @@ class User(UserMixin, db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     onboarding_done = db.Column(db.Boolean, default=False)
     is_test_account = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    is_banned = db.Column(db.Boolean, default=False)
     last_seen = db.Column(db.DateTime(timezone=True), nullable=True)
     pro_free_boost_last_used_day = db.Column(db.String(10), nullable=True)  # "YYYY-MM-DD" UTC
 
@@ -225,6 +227,9 @@ class Report(db.Model):
     listing_id = db.Column(db.String(36), db.ForeignKey("listings.id"), nullable=True, index=True)
     reason = db.Column(db.Text, nullable=False)
     status = db.Column(db.String(32), default="open")  # "open"|"reviewed"|"resolved"
+    admin_notes = db.Column(db.Text, nullable=True)
+    resolved_by = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=True)
+    resolved_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
 class PriceHistory(db.Model):

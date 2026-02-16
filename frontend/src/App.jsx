@@ -36,6 +36,7 @@ import Purchases from "./pages/Purchases.jsx";
 import Onboarding from "./components/Onboarding.jsx";
 import MeetupConfirm from "./pages/MeetupConfirm.jsx";
 import Verify from "./pages/Verify.jsx";
+import Admin from "./pages/Admin.jsx";
 
 // Apply stored theme on load
 (function(){
@@ -143,7 +144,7 @@ export default function App(){
 
   const authPages = ["/login", "/signup", "/forgot", "/reset", "/verify"];
   const publicPages = ["/about", "/privacy", "/terms", "/contact", "/prohibited-items", "/how-it-works", "/refunds", "/info"];
-  const hideNav = authPages.includes(loc.pathname) || publicPages.includes(loc.pathname) || !me.authed;
+  const hideNav = authPages.includes(loc.pathname) || publicPages.includes(loc.pathname) || loc.pathname === "/admin" || !me.authed;
   const showFooter = !authPages.includes(loc.pathname);
 
   return (
@@ -233,6 +234,11 @@ export default function App(){
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/refunds" element={<Refunds />} />
           <Route path="/info" element={<Info />} />
+          <Route path="/admin" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <Admin me={me} />
+            </RequireAuth>
+          }/>
           <Route path="/verify" element={<Verify notify={notify} />} />
 
           <Route path="/login" element={<Login notify={notify} refreshMe={refreshMe} />} />
