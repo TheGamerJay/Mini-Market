@@ -213,6 +213,7 @@ def search():
     q = (request.args.get("q") or "").strip()
     category = (request.args.get("category") or "").strip()
     city = (request.args.get("city") or "").strip()
+    zip_code = (request.args.get("zip") or "").strip()
     condition = (request.args.get("condition") or "").strip()
     min_price = request.args.get("min_price", type=float)
     max_price = request.args.get("max_price", type=float)
@@ -233,6 +234,8 @@ def search():
         query = query.filter_by(category=category)
     if city:
         query = query.filter(Listing.city.ilike(f"%{city}%"))
+    if zip_code:
+        query = query.filter(Listing.zip == zip_code)
     if condition:
         query = query.filter(Listing.condition.ilike(condition))
     if min_price is not None:

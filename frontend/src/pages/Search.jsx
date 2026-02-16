@@ -44,6 +44,7 @@ export default function Search({ notify }){
   const [condition, setCondition] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [zip, setZip] = useState("");
   const [sort, setSort] = useState("newest");
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function Search({ notify }){
       if (condition) params.condition = condition;
       if (minPrice) params.min_price = minPrice;
       if (maxPrice) params.max_price = maxPrice;
+      if (zip) params.zip = zip;
       if (sort !== "newest") params.sort = sort;
       const data = await api.search(params);
       setResults(data.listings || []);
@@ -80,11 +82,11 @@ export default function Search({ notify }){
   // Re-search when filters/sort change (only if already searched)
   useEffect(() => {
     if (searched && query.trim()) doSearch();
-  }, [category, condition, minPrice, maxPrice, sort]);
+  }, [category, condition, minPrice, maxPrice, zip, sort]);
 
   const onSubmit = (e) => { e.preventDefault(); doSearch(); };
 
-  const activeFilterCount = [category, condition, minPrice, maxPrice].filter(Boolean).length;
+  const activeFilterCount = [category, condition, minPrice, maxPrice, zip].filter(Boolean).length;
 
   const chipStyle = (active) => ({
     padding:"6px 12px", borderRadius:20, fontSize:11, fontWeight:700,
@@ -212,9 +214,23 @@ export default function Search({ notify }){
             </div>
           </div>
 
+          {/* ZIP Code */}
+          <div style={{ marginTop:12 }}>
+            <div style={{ fontSize:11, fontWeight:700, marginBottom:6, color:"var(--muted)" }}>Near My ZIP</div>
+            <input
+              type="text" inputMode="numeric" placeholder="e.g. 01826" value={zip}
+              onChange={e => setZip(e.target.value.replace(/[^0-9]/g, "").slice(0, 5))}
+              style={{
+                width:120, padding:"8px 10px", borderRadius:10, fontSize:13,
+                background:"var(--input-bg)", border:"1px solid var(--border)",
+                color:"var(--text)", fontFamily:"inherit", outline:"none",
+              }}
+            />
+          </div>
+
           {/* Clear filters */}
           {activeFilterCount > 0 && (
-            <button onClick={() => { setCategory(""); setCondition(""); setMinPrice(""); setMaxPrice(""); setSort("newest"); }}
+            <button onClick={() => { setCategory(""); setCondition(""); setMinPrice(""); setMaxPrice(""); setZip(""); setSort("newest"); }}
               style={{
                 marginTop:10, background:"none", border:"none", cursor:"pointer",
                 color:"var(--cyan)", fontSize:11, fontWeight:700, fontFamily:"inherit", padding:0,
