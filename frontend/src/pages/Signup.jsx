@@ -89,6 +89,13 @@ export default function Signup({ notify }){
         <div style={{ display:"flex", justifyContent:"center", gap:6, flexWrap:"wrap" }}>
           <Link to="/about" style={{ color:"var(--muted)", textDecoration:"none", fontWeight:600 }}>About</Link>
           <span>&middot;</span>
+          <Link to="/how-it-works" style={{ color:"var(--muted)", textDecoration:"none", fontWeight:600 }}>How It Works</Link>
+          <span>&middot;</span>
+          <Link to="/prohibited-items" style={{ color:"var(--muted)", textDecoration:"none", fontWeight:600 }}>Prohibited Items</Link>
+          <span>&middot;</span>
+          <Link to="/refunds" style={{ color:"var(--muted)", textDecoration:"none", fontWeight:600 }}>Refund Policy</Link>
+        </div>
+        <div style={{ display:"flex", justifyContent:"center", gap:6, flexWrap:"wrap", marginTop:4 }}>
           <Link to="/privacy" style={{ color:"var(--muted)", textDecoration:"none", fontWeight:600 }}>Privacy</Link>
           <span>&middot;</span>
           <Link to="/terms" style={{ color:"var(--muted)", textDecoration:"none", fontWeight:600 }}>Terms</Link>
