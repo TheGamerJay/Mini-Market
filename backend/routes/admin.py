@@ -104,6 +104,74 @@ def toggle_ban(user_id):
     return jsonify({"ok": True, "is_banned": u.is_banned})
 
 
+@admin_bp.delete("/users/<user_id>")
+@admin_required
+def delete_user(user_id):
+    u = db.session.get(User, user_id)
+    if not u:
+        return jsonify({"error": "User not found"}), 404
+    if u.id == current_user.id:
+        return jsonify({"error": "Cannot delete yourself"}), 400
+
+    uid = u.id
+    # Delete all user's listings and their dependents first
+    user_listings = Listing.query.filter_by(user_id=uid).all()
+    for listing in user_listings:
+        lid = listing.id
+        for tbl, col in [
+            ("boost_impressions", "boost_id IN (SELECT id FROM boosts WHERE listing_id=:lid)"),
+            ("boosts", "listing_id=:lid"),
+            ("messages", "conversation_id IN (SELECT id FROM conversations WHERE listing_id=:lid)"),
+            ("conversations", "listing_id=:lid"),
+            ("safe_meet_locations", "listing_id=:lid"),
+            ("safety_ack_events", "listing_id=:lid"),
+            ("observing", "listing_id=:lid"),
+            ("notifications", "listing_id=:lid"),
+            ("offers", "listing_id=:lid"),
+            ("price_history", "listing_id=:lid"),
+            ("reviews", "listing_id=:lid"),
+            ("listing_views", "listing_id=:lid"),
+            ("meetup_confirmations", "listing_id=:lid"),
+            ("listing_images", "listing_id=:lid"),
+        ]:
+            try:
+                db.session.execute(text(f"DELETE FROM {tbl} WHERE {col}"), {"lid": lid})
+            except Exception:
+                db.session.rollback()
+        try:
+            db.session.execute(text("DELETE FROM reports WHERE listing_id=:lid"), {"lid": lid})
+        except Exception:
+            db.session.rollback()
+        db.session.delete(listing)
+
+    # Delete user-level data
+    for tbl, col in [
+        ("boost_impressions", "viewer_user_id=:uid"),
+        ("messages", "sender_id=:uid"),
+        ("conversations", "buyer_id=:uid"),
+        ("observing", "user_id=:uid"),
+        ("notifications", "user_id=:uid"),
+        ("offers", "buyer_id=:uid"),
+        ("reviews", "reviewer_id=:uid"),
+        ("reports", "reporter_id=:uid"),
+        ("reports", "reported_user_id=:uid"),
+        ("safety_ack_events", "user_id=:uid"),
+        ("saved_searches", "user_id=:uid"),
+        ("subscriptions", "user_id=:uid"),
+        ("push_subscriptions", "user_id=:uid"),
+        ("user_blocks", "blocker_id=:uid"),
+        ("user_blocks", "blocked_id=:uid"),
+    ]:
+        try:
+            db.session.execute(text(f"DELETE FROM {tbl} WHERE {col}"), {"uid": uid})
+        except Exception:
+            db.session.rollback()
+
+    db.session.delete(u)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
 @admin_bp.post("/users/<user_id>/toggle-pro")
 @admin_required
 def toggle_pro(user_id):

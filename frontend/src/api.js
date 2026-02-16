@@ -131,6 +131,7 @@ export const api = {
   adminDashboard: () => req("/api/admin/dashboard", { headers: api._adminH() }),
   adminUsers: (params) => req(`/api/admin/users?${new URLSearchParams(params)}`, { headers: api._adminH() }),
   adminBanUser: (id) => req(`/api/admin/users/${id}/ban`, { method:"POST", headers: api._adminH() }),
+  adminDeleteUser: (id) => req(`/api/admin/users/${id}`, { method:"DELETE", headers: api._adminH() }),
   adminTogglePro: (id) => req(`/api/admin/users/${id}/toggle-pro`, { method:"POST", headers: api._adminH() }),
   adminToggleVerified: (id) => req(`/api/admin/users/${id}/toggle-verified`, { method:"POST", headers: api._adminH() }),
   adminListings: (params) => req(`/api/admin/listings?${new URLSearchParams(params)}`, { headers: api._adminH() }),

@@ -109,6 +109,11 @@ function UsersTab() {
   useEffect(() => { load(1); }, []);
 
   const action = async (fn, id) => { await fn(id); load(page); };
+  const removeUser = async (id, email) => {
+    if (!confirm(`Permanently delete ${email} and all their data? This cannot be undone.`)) return;
+    await api.adminDeleteUser(id);
+    load(page);
+  };
 
   return (
     <>
@@ -140,10 +145,11 @@ function UsersTab() {
                 {u.is_admin && <span style={{ fontSize: 9, background: "rgba(164,122,255,.15)", color: "var(--violet)", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>ADMIN</span>}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <SmBtn label={u.is_banned ? "Unban" : "Ban"} danger={!u.is_banned} color="var(--cyan)" onClick={() => action(api.adminBanUser, u.id)} />
               <SmBtn label={u.is_pro ? "Remove Pro" : "Give Pro"} onClick={() => action(api.adminTogglePro, u.id)} />
               <SmBtn label={u.is_verified ? "Unverify" : "Verify"} color="var(--violet)" onClick={() => action(api.adminToggleVerified, u.id)} />
+              {!u.is_admin && <SmBtn label="Delete" danger onClick={() => removeUser(u.id, u.email)} />}
             </div>
           </div>
         </Card>
