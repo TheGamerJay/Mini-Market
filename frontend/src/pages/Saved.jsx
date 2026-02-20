@@ -34,6 +34,10 @@ export default function Saved({ notify }){
   const [searches, setSearches] = useState([]);
   const [searchesBusy, setSearchesBusy] = useState(true);
 
+  // Recently viewed state
+  const [recent, setRecent] = useState([]);
+  const [recentBusy, setRecentBusy] = useState(true);
+
   useEffect(() => {
     (async () => {
       try {
@@ -52,6 +56,22 @@ export default function Saved({ notify }){
         setSearches(res.saved_searches || []);
       } catch(err) { notify(err.message); }
       finally { setSearchesBusy(false); }
+    })();
+    (async () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem("pm_recent") || "[]");
+        if (!stored.length) { setRecentBusy(false); return; }
+        const checks = await Promise.all(
+          stored.map(r => api.listing(r.id).then(d => d.listing).catch(() => null))
+        );
+        const valid = checks.filter(Boolean);
+        // Update localStorage with valid entries only
+        localStorage.setItem("pm_recent", JSON.stringify(valid.map(l => ({
+          id: l.id, title: l.title, price_cents: l.price_cents, image: l.images?.[0] || null,
+        }))));
+        setRecent(valid.slice(0, 10));
+      } catch {}
+      finally { setRecentBusy(false); }
     })();
   }, []);
 
@@ -83,7 +103,7 @@ export default function Saved({ notify }){
         display:"flex", gap:0, borderRadius:12, overflow:"hidden",
         border:"1px solid var(--border)", marginBottom:14,
       }}>
-        {[["items", "Items"], ["searches", "Searches"]].map(([key, label]) => (
+        {[["items", "Items"], ["searches", "Searches"], ["recent", "Recent"]].map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -187,6 +207,44 @@ export default function Saved({ notify }){
               </div>
             ))}
           </div>
+        )
+      )}
+
+      {/* Recently Viewed tab */}
+      {tab === "recent" && (
+        recentBusy ? (
+          <>{[...Array(3)].map((_, i) => <SkeletonRow key={i} />)}</>
+        ) : recent.length ? recent.map(l => (
+          <Link key={l.id} to={`/listing/${l.id}`} style={{ display:"block", marginBottom:8 }}>
+            <div className="panel" style={{
+              display:"flex", gap:12, padding:12, alignItems:"center", borderRadius:14,
+            }}>
+              <div style={{
+                width:52, height:52, borderRadius:10, overflow:"hidden",
+                flexShrink:0, background:"var(--panel2)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                {l.images?.length > 0 ? (
+                  <img src={`${api.base}${l.images[0]}`} alt={l.title} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                ) : (
+                  <IconCamera size={20} color="var(--muted)" />
+                )}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ fontWeight:700, fontSize:14, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.title}</div>
+                <div style={{ marginTop:3, display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontWeight:800, fontSize:13 }}>{money(l.price_cents)}</span>
+                  {l.is_sold && <span style={{ fontSize:10, color:"var(--red, #e74c3c)", fontWeight:700 }}>SOLD</span>}
+                </div>
+              </div>
+            </div>
+          </Link>
+        )) : (
+          <Card>
+            <div className="muted" style={{ textAlign:"center" }}>
+              No recently viewed items yet. Browse listings to see them here.
+            </div>
+          </Card>
         )
       )}
 

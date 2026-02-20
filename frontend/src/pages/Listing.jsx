@@ -89,6 +89,11 @@ export default function Listing({ me, notify }){
     // Track view
     api.trackView(id).catch(() => {});
 
+    // Load boost info if owner so countdown shows
+    if (me?.authed && me.user?.id === listing.user_id && listing.is_boosted) {
+      loadBoostInfo();
+    }
+
     // Track recently viewed
     try {
       const key = "pm_recent";
@@ -602,9 +607,15 @@ export default function Listing({ me, notify }){
                 padding:"10px 14px", borderRadius:12, textAlign:"center",
                 background:"linear-gradient(135deg, rgba(62,224,255,.15), rgba(164,122,255,.15))",
                 border:"1px solid rgba(62,224,255,.30)",
-                fontSize:13, fontWeight:700, color:"var(--cyan)",
               }}>
-                Currently Boosted
+                <div style={{ fontSize:13, fontWeight:700, color:"var(--cyan)" }}>
+                  Currently Boosted
+                </div>
+                {countdown > 0 && (
+                  <div style={{ fontSize:11, fontWeight:600, color:"var(--muted)", marginTop:4, fontVariantNumeric:"tabular-nums" }}>
+                    Next free boost in {Math.floor(countdown/3600).toString().padStart(2,"0")}:{Math.floor((countdown%3600)/60).toString().padStart(2,"0")}:{(countdown%60).toString().padStart(2,"0")}
+                  </div>
+                )}
               </div>
             )}
 

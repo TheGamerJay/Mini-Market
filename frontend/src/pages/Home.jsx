@@ -48,7 +48,7 @@ function timeAgo(iso){
 
 export default function Home({ me, notify, unreadNotifs = 0 }){
   const [listings, setListings] = useState([]);
-  const [featuredIds, setFeaturedIds] = useState([]);
+  const [featured, setFeatured] = useState([]);
   const [busy, setBusy] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [page, setPage] = useState(1);
@@ -72,7 +72,7 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
       ]);
       if (reset) {
         setListings(feed.listings || []);
-        setFeaturedIds(feat.featured_listing_ids || []);
+        setFeatured(feat.featured_listings || []);
       } else {
         setListings(prev => [...prev, ...(feed.listings || [])]);
       }
@@ -108,7 +108,6 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
     return () => obs.disconnect();
   }, []);
 
-  const featured = listings.filter(l => featuredIds.includes(l.id));
   const filtered = activeCategory === "All"
     ? listings
     : listings.filter(l => (l.category || "").toLowerCase() === activeCategory.toLowerCase());
@@ -174,43 +173,6 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
         ))}
       </div>
 
-      {/* ── Featured section ── */}
-      {featured.length > 0 && (
-        <>
-          <div className="section-header" style={{ marginTop:6 }}>
-            <span className="h2">Featured</span>
-            <IconChevronRight size={18} color="var(--muted)" />
-          </div>
-          <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
-            {featured.map(l => (
-              <Link key={l.id} to={`/listing/${l.id}`} style={{ minWidth:140, flexShrink:0 }}>
-                <Card noPadding>
-                  <div style={{ position:"relative" }}>
-                    {l.images?.length > 0 ? (
-                      <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image" onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
-                    ) : (
-                      <div className="card-image-placeholder"><IconCamera size={28} /></div>
-                    )}
-                    {l.is_sold && (
-                      <div style={{
-                        position:"absolute", top:6, left:6,
-                        background:"var(--red, #e74c3c)", color:"#fff",
-                        fontSize:9, fontWeight:800, padding:"2px 6px",
-                        borderRadius:5, letterSpacing:0.5,
-                      }}>SOLD</div>
-                    )}
-                  </div>
-                  <div style={{ padding:"8px 10px" }}>
-                    <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.title}</div>
-                    <div style={{ marginTop:2, fontSize:12, fontWeight:800 }}>{money(l.price_cents)}</div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </>
-      )}
-
       {/* ── Refresh + Swipe mode ── */}
       <div style={{ display:"flex", justifyContent:"center", gap:12, padding:"4px 0" }}>
         <button onClick={() => loadFeed(true)} disabled={busy} style={{
@@ -232,8 +194,48 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
         )}
       </div>
 
-      {/* ── Recently Viewed ── */}
-      <RecentlyViewed />
+      {/* ── Boosted / Featured ── */}
+      {featured.length > 0 && (
+        <>
+          <div className="section-header" style={{ marginTop:6 }}>
+            <span className="h2">Boosted</span>
+            <IconChevronRight size={18} color="var(--muted)" />
+          </div>
+          <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
+            {featured.map(l => (
+              <Link key={l.id} to={`/listing/${l.id}`} style={{ minWidth:140, flexShrink:0 }}>
+                <Card noPadding>
+                  <div style={{ position:"relative" }}>
+                    {l.images?.length > 0 ? (
+                      <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image" onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
+                    ) : (
+                      <div className="card-image-placeholder"><IconCamera size={28} /></div>
+                    )}
+                    {l.is_sold && (
+                      <div style={{
+                        position:"absolute", top:6, left:6,
+                        background:"var(--red, #e74c3c)", color:"#fff",
+                        fontSize:9, fontWeight:800, padding:"2px 6px",
+                        borderRadius:5, letterSpacing:0.5,
+                      }}>SOLD</div>
+                    )}
+                    <div style={{
+                      position:"absolute", top:6, right:6,
+                      background:"linear-gradient(135deg, var(--cyan), var(--violet))", color:"#fff",
+                      fontSize:8, fontWeight:800, padding:"2px 5px",
+                      borderRadius:4, letterSpacing:0.5,
+                    }}>BOOSTED</div>
+                  </div>
+                  <div style={{ padding:"8px 10px" }}>
+                    <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.title}</div>
+                    <div style={{ marginTop:2, fontSize:12, fontWeight:800 }}>{money(l.price_cents)}</div>
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* ── Nearby Items ── */}
       <div className="section-header">
@@ -328,51 +330,3 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
   );
 }
 
-function RecentlyViewed(){
-  const [items, setItems] = useState([]);
-  useEffect(() => {
-    (async () => {
-      try {
-        const recent = JSON.parse(localStorage.getItem("pm_recent") || "[]");
-        if (!recent.length) return;
-        // Validate each entry still exists on the server
-        const checks = await Promise.all(
-          recent.map(r => api.listing(r.id).then(() => r).catch(() => null))
-        );
-        const valid = checks.filter(Boolean);
-        if (valid.length !== recent.length) localStorage.setItem("pm_recent", JSON.stringify(valid));
-        setItems(valid.slice(0, 6));
-      } catch {}
-    })();
-  }, []);
-
-  if (items.length === 0) return null;
-
-  return (
-    <>
-      <div className="section-header" style={{ marginTop:6 }}>
-        <span className="h2">Recently Viewed</span>
-        <IconChevronRight size={18} color="var(--muted)" />
-      </div>
-      <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
-        {items.map(l => (
-          <Link key={l.id} to={`/listing/${l.id}`} style={{ minWidth:100, maxWidth:100, flexShrink:0 }}>
-            <Card noPadding>
-              {l.image ? (
-                <img src={`${api.base}${l.image}`} alt={l.title} style={{ width:"100%", height:80, objectFit:"cover", borderRadius:"var(--radius) var(--radius) 0 0", display:"block" }} onError={e => { e.target.onerror=null; e.target.src=""; e.target.style.background="var(--panel2)"; }} />
-              ) : (
-                <div style={{ width:"100%", height:80, background:"var(--panel2)", borderRadius:"var(--radius) var(--radius) 0 0", display:"flex", alignItems:"center", justifyContent:"center" }}><IconCamera size={20} /></div>
-              )}
-              <div style={{ padding:"6px 8px" }}>
-                <div style={{ fontWeight:700, fontSize:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                  {l.title}
-                </div>
-                <div style={{ fontWeight:800, fontSize:11, marginTop:2 }}>{money(l.price_cents)}</div>
-              </div>
-            </Card>
-          </Link>
-        ))}
-      </div>
-    </>
-  );
-}

@@ -5,7 +5,7 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_login import current_user, login_required
 
 from extensions import db
-from models import Boost, BoostImpression, Listing, Subscription, User
+from models import Boost, BoostImpression, Listing, ListingImage, Subscription, User
 
 boosts_bp = Blueprint("boosts", __name__)
 
@@ -77,7 +77,26 @@ def featured():
         db.session.add(BoostImpression(boost_id=b.id, viewer_user_id=viewer_id))
     db.session.commit()
 
-    return jsonify({"featured_listing_ids": listing_ids}), 200
+    # Return full listing data for the featured items
+    featured_listings = []
+    for lid in listing_ids:
+        l = db.session.get(Listing, lid)
+        if not l or l.is_draft:
+            continue
+        imgs = ListingImage.query.filter_by(listing_id=l.id).order_by(ListingImage.created_at.asc()).all()
+        seller = db.session.get(User, l.user_id)
+        featured_listings.append({
+            "id": l.id,
+            "title": l.title,
+            "price_cents": l.price_cents,
+            "is_sold": l.is_sold,
+            "is_demo": bool(l.is_demo),
+            "images": [i.image_url for i in imgs],
+            "is_pro_seller": bool(seller and seller.is_pro),
+            "created_at": l.created_at.isoformat(),
+        })
+
+    return jsonify({"featured_listing_ids": listing_ids, "featured_listings": featured_listings}), 200
 
 
 @boosts_bp.get("/durations")
