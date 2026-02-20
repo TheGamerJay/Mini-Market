@@ -19,6 +19,9 @@ export default function Profile({ me, notify, refreshMe }){
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [stats, setStats] = useState(null);
+  const [showSuggestion, setShowSuggestion] = useState(false);
+  const [suggestion, setSuggestion] = useState("");
+  const [sendingSuggestion, setSendingSuggestion] = useState(false);
   const fileRef = useRef(null);
 
   const toggleTheme = () => {
@@ -403,7 +406,7 @@ export default function Profile({ me, notify, refreshMe }){
             <Link to="/privacy" style={{ textDecoration:"none", color:"inherit" }}>
               <div style={{
                 display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"12px 0",
+                padding:"12px 0", borderBottom:"1px solid var(--border)",
               }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10 }}>
                   <span style={{ fontSize:16 }}>&#x1F512;</span>
@@ -412,6 +415,61 @@ export default function Profile({ me, notify, refreshMe }){
                 <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
               </div>
             </Link>
+            <div
+              onClick={() => setShowSuggestion(!showSuggestion)}
+              style={{
+                display:"flex", justifyContent:"space-between", alignItems:"center",
+                padding:"12px 0", cursor:"pointer",
+              }}
+            >
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <span style={{ fontSize:16 }}>&#x1F4A1;</span>
+                <span style={{ fontWeight:600, fontSize:14 }}>Send a Suggestion</span>
+              </div>
+              <span className="muted" style={{ fontSize:16 }}>{showSuggestion ? "\u2039" : "\u203A"}</span>
+            </div>
+            {showSuggestion && (
+              <div style={{ paddingBottom:8 }}>
+                <textarea
+                  value={suggestion}
+                  onChange={e => setSuggestion(e.target.value)}
+                  placeholder="Have an idea or feature request? Let us know!"
+                  rows={3}
+                  style={{
+                    width:"100%", padding:"10px 12px", borderRadius:10, fontSize:13,
+                    background:"var(--input-bg)", border:"1px solid var(--border)",
+                    color:"var(--text)", fontFamily:"inherit", outline:"none", resize:"vertical",
+                  }}
+                />
+                <button
+                  disabled={!suggestion.trim() || sendingSuggestion}
+                  onClick={async () => {
+                    setSendingSuggestion(true);
+                    try {
+                      await api.supportContact({
+                        email: me.user.email,
+                        message: suggestion.trim(),
+                        type: "suggestion",
+                      });
+                      notify("Suggestion sent! Thanks for the feedback.");
+                      setSuggestion("");
+                      setShowSuggestion(false);
+                    } catch(err) { notify(err.message); }
+                    finally { setSendingSuggestion(false); }
+                  }}
+                  style={{
+                    marginTop:8, padding:"10px 20px", borderRadius:10, fontSize:13, fontWeight:700,
+                    cursor: !suggestion.trim() || sendingSuggestion ? "not-allowed" : "pointer",
+                    fontFamily:"inherit", border:"none",
+                    background: !suggestion.trim() || sendingSuggestion ? "var(--panel2)" : "var(--cyan)",
+                    color: !suggestion.trim() || sendingSuggestion ? "var(--muted)" : "#000",
+                    width:"100%",
+                  }}
+                >
+                  {sendingSuggestion ? "Sending..." : "Send Suggestion"}
+                </button>
+              </div>
+            )}
           </div>
         </Card>
       </div>
