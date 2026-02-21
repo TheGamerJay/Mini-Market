@@ -105,7 +105,7 @@ export default function Listing({ me, notify }){
         price_cents: listing.price_cents,
         image: listing.images?.[0] || null,
       });
-      localStorage.setItem(key, JSON.stringify(filtered.slice(0, 10)));
+      localStorage.setItem(key, JSON.stringify(filtered.slice(0, 30)));
     } catch {}
   }, [listing]);
 
