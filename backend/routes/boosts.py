@@ -1,5 +1,6 @@
 import random
 import stripe
+from collections import defaultdict
 from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from flask_login import current_user, login_required
@@ -9,7 +10,13 @@ from models import Boost, BoostImpression, Listing, ListingImage, Subscription, 
 
 boosts_bp = Blueprint("boosts", __name__)
 
-# Round-robin offset — rotates which group of 10 gets shown each request
+# ── Configurable constants ──
+CAROUSEL_SIZE = 10              # max boosted slots shown per request
+PAID_BOOST_WEIGHT = 3           # paid boosts appear 3x more often
+FREE_PRO_BOOST_WEIGHT = 1       # free Pro boosts appear at base rate
+MAX_SLOTS_PER_SELLER = 2        # anti-spam: same seller can't fill more than 2 slots
+
+# Round-robin offset — rotates which group gets shown each request
 _rotation_offset = 0
 
 DURATIONS = [
@@ -45,6 +52,20 @@ def _seconds_until_reset():
     return int((midnight - now).total_seconds())
 
 
+def _listing_to_dict(l, imgs, seller):
+    """Serialize a listing for the featured response."""
+    return {
+        "id": l.id,
+        "title": l.title,
+        "price_cents": l.price_cents,
+        "is_sold": l.is_sold,
+        "is_demo": bool(l.is_demo),
+        "images": [i.image_url for i in imgs],
+        "is_pro_seller": bool(seller and seller.is_pro),
+        "created_at": l.created_at.isoformat(),
+    }
+
+
 @boosts_bp.get("/featured")
 def featured():
     global _rotation_offset
@@ -57,49 +78,78 @@ def featured():
     if expired_count:
         db.session.commit()
 
-    active = Boost.query.filter(Boost.status == "active", Boost.ends_at > now).order_by(Boost.created_at.asc()).all()
-    if not active:
-        return jsonify({"featured_listing_ids": []}), 200
+    active = Boost.query.filter(
+        Boost.status == "active", Boost.ends_at > now,
+    ).order_by(Boost.created_at.asc()).all()
 
-    # Rotate through all active boosts in groups of 10 (no duplicates)
-    total = len(active)
-    batch_size = min(10, total)
-    start = _rotation_offset % total
-    _rotation_offset += batch_size
+    # ── Weighted selection ──
+    # Build a weighted pool: paid boosts get PAID_BOOST_WEIGHT entries,
+    # free Pro boosts get FREE_PRO_BOOST_WEIGHT entries
+    weighted_pool = []
+    for b in active:
+        weight = PAID_BOOST_WEIGHT if b.boost_type == "paid" else FREE_PRO_BOOST_WEIGHT
+        weighted_pool.extend([b] * weight)
 
-    # Wrap around to get a full batch
-    if start + batch_size <= total:
-        batch = active[start:start + batch_size]
-    else:
-        batch = active[start:] + active[:batch_size - (total - start)]
+    # Shuffle the weighted pool for randomness
+    random.shuffle(weighted_pool)
 
-    # Shuffle within the batch for variety
-    random.shuffle(batch)
-    listing_ids = [b.listing_id for b in batch]
+    # ── Pick slots with anti-spam ──
+    # Same seller can only fill MAX_SLOTS_PER_SELLER slots
+    seller_count = defaultdict(int)
+    seen_listings = set()
+    batch = []
 
+    for b in weighted_pool:
+        if len(batch) >= CAROUSEL_SIZE:
+            break
+        # No duplicate listings
+        if b.listing_id in seen_listings:
+            continue
+        # Look up listing to get seller_id
+        listing = db.session.get(Listing, b.listing_id)
+        if not listing or listing.is_draft or listing.is_sold:
+            continue
+        # Anti-spam: cap per seller
+        if seller_count[listing.user_id] >= MAX_SLOTS_PER_SELLER:
+            continue
+        batch.append(b)
+        seen_listings.add(b.listing_id)
+        seller_count[listing.user_id] += 1
+
+    # Record impressions
     viewer_id = current_user.id if current_user.is_authenticated else None
     for b in batch:
         db.session.add(BoostImpression(boost_id=b.id, viewer_user_id=viewer_id))
-    db.session.commit()
+    if batch:
+        db.session.commit()
 
-    # Return full listing data for the featured items
+    # Build listing data for boosted items
+    listing_ids = [b.listing_id for b in batch]
     featured_listings = []
     for lid in listing_ids:
         l = db.session.get(Listing, lid)
-        if not l or l.is_draft:
+        if not l:
             continue
         imgs = ListingImage.query.filter_by(listing_id=l.id).order_by(ListingImage.created_at.asc()).all()
         seller = db.session.get(User, l.user_id)
-        featured_listings.append({
-            "id": l.id,
-            "title": l.title,
-            "price_cents": l.price_cents,
-            "is_sold": l.is_sold,
-            "is_demo": bool(l.is_demo),
-            "images": [i.image_url for i in imgs],
-            "is_pro_seller": bool(seller and seller.is_pro),
-            "created_at": l.created_at.isoformat(),
-        })
+        featured_listings.append(_listing_to_dict(l, imgs, seller))
+
+    # ── Slot filling ──
+    # If fewer boosts than CAROUSEL_SIZE, fill remaining slots with
+    # recent non-boosted listings so the carousel always looks full
+    remaining = CAROUSEL_SIZE - len(featured_listings)
+    if remaining > 0:
+        filler = Listing.query.filter(
+            Listing.is_draft.is_(False),
+            Listing.is_sold.is_(False),
+            ~Listing.id.in_(seen_listings) if seen_listings else True,
+        ).order_by(Listing.created_at.desc()).limit(remaining).all()
+
+        for l in filler:
+            imgs = ListingImage.query.filter_by(listing_id=l.id).order_by(ListingImage.created_at.asc()).all()
+            seller = db.session.get(User, l.user_id)
+            featured_listings.append(_listing_to_dict(l, imgs, seller))
+            listing_ids.append(l.id)
 
     return jsonify({"featured_listing_ids": listing_ids, "featured_listings": featured_listings}), 200
 
