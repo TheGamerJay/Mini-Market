@@ -146,6 +146,25 @@ def send_welcome(email, display_name):
 def send_support_auto_reply(email, display_name, message_type):
     name = display_name or "there"
     ticket = _ticket_id("PM")
+
+    if message_type == "suggestion":
+        send_email(
+            to=email,
+            subject=f"Thanks for your suggestion [{ticket}]",
+            reply_to=SUPPORT_EMAIL,
+            body_html=_wrap(f"""
+                <p style="font-size:12px;color:#999;margin-top:0;">Ref: {ticket}</p>
+                <h2 style="color:{BRAND_COLOR};margin-top:8px;">Thanks for your suggestion!</h2>
+                <p>Hi {name},</p>
+                <p>Thanks for sending in your suggestion.</p>
+                <p>Your feedback has been received and logged for consideration by our team. We may not be able to follow up directly, but every idea helps us make Pocket Market better for everyone.</p>
+                <p>We appreciate you taking a moment to share your thoughts with us.</p>
+                <p>&mdash; <strong>Pocket Market Team</strong><br>
+                <a href="https://pocket-market.com" style="color:{BRAND_COLOR};text-decoration:none;">pocket-market.com</a></p>
+            """),
+        )
+        return
+
     label = "bug report" if message_type == "report" else "message"
     send_email(
         to=email,
