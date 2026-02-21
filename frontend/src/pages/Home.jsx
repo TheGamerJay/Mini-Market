@@ -37,12 +37,16 @@ function money(cents){
 }
 
 function boostTimeLeft(iso){
-  if (!iso) return "";
+  if (!iso) return { text: "BOOSTED", bg: "linear-gradient(135deg, var(--cyan), var(--violet))" };
   const diff = (new Date(iso).getTime() - Date.now()) / 1000;
-  if (diff <= 0) return "Expired";
-  if (diff < 3600) return `${Math.ceil(diff/60)}m left`;
-  if (diff < 86400) return `${Math.floor(diff/3600)}h ${Math.floor((diff%3600)/60)}m`;
-  return `${Math.floor(diff/86400)}d ${Math.floor((diff%86400)/3600)}h`;
+  if (diff <= 0) return { text: "Expired", bg: "#666" };
+  const text = diff < 3600 ? `${Math.ceil(diff/60)}m left`
+    : diff < 86400 ? `${Math.floor(diff/3600)}h ${Math.floor((diff%3600)/60)}m`
+    : `${Math.floor(diff/86400)}d ${Math.floor((diff%86400)/3600)}h`;
+  const bg = diff > 21600 ? "#27ae60"     // > 6h = green
+    : diff > 3600 ? "#f39c12"             // 1-6h = amber
+    : "#e74c3c";                          // < 1h = red
+  return { text, bg };
 }
 
 function timeAgo(iso){
@@ -236,12 +240,14 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
                         borderRadius:5, letterSpacing:0.5,
                       }}>SOLD</div>
                     )}
-                    <div style={{
-                      position:"absolute", top:6, right:6,
-                      background:"linear-gradient(135deg, var(--cyan), var(--violet))", color:"#fff",
-                      fontSize:7, fontWeight:800, padding:"2px 5px",
-                      borderRadius:4, letterSpacing:0.3,
-                    }}>{l.boost_ends_at ? boostTimeLeft(l.boost_ends_at) : "BOOSTED"}</div>
+                    {(() => { const b = boostTimeLeft(l.boost_ends_at); return (
+                      <div style={{
+                        position:"absolute", top:6, right:6,
+                        background: b.bg, color:"#fff",
+                        fontSize:7, fontWeight:800, padding:"2px 5px",
+                        borderRadius:4, letterSpacing:0.3,
+                      }}>{b.text}</div>
+                    ); })()}
                   </div>
                   <div style={{ padding:"8px 10px" }}>
                     <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.title}</div>
