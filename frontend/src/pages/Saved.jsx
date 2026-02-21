@@ -27,9 +27,19 @@ const VALID_TABS = ["items", "searches", "recent"];
 export default function Saved({ notify }){
   const nav = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = VALID_TABS.includes(searchParams.get("tab")) ? searchParams.get("tab") : "items";
+  const initialTab = (() => {
+    const fromUrl = searchParams.get("tab");
+    if (VALID_TABS.includes(fromUrl)) return fromUrl;
+    const fromStorage = localStorage.getItem("pm_saved_tab");
+    if (VALID_TABS.includes(fromStorage)) return fromStorage;
+    return "items";
+  })();
   const [tab, setTabState] = useState(initialTab);
-  const setTab = (t) => { setTabState(t); setSearchParams({ tab: t }, { replace: true }); };
+  const setTab = (t) => {
+    setTabState(t);
+    setSearchParams({ tab: t }, { replace: true });
+    localStorage.setItem("pm_saved_tab", t);
+  };
 
   // Items (observing) state
   const [items, setItems] = useState([]);
