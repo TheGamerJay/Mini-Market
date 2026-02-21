@@ -139,23 +139,6 @@ def featured():
         seller = db.session.get(User, l.user_id)
         featured_listings.append(_listing_to_dict(l, imgs, seller))
 
-    # ── Slot filling ──
-    # If fewer boosts than CAROUSEL_SIZE, fill remaining slots with
-    # recent non-boosted listings so the carousel always looks full
-    remaining = CAROUSEL_SIZE - len(featured_listings)
-    if remaining > 0:
-        filler = Listing.query.filter(
-            Listing.is_draft.is_(False),
-            Listing.is_sold.is_(False),
-            ~Listing.id.in_(seen_listings) if seen_listings else True,
-        ).order_by(Listing.created_at.desc()).limit(remaining).all()
-
-        for l in filler:
-            imgs = ListingImage.query.filter_by(listing_id=l.id).order_by(ListingImage.created_at.asc()).all()
-            seller = db.session.get(User, l.user_id)
-            featured_listings.append(_listing_to_dict(l, imgs, seller))
-            listing_ids.append(l.id)
-
     return jsonify({"featured_listing_ids": listing_ids, "featured_listings": featured_listings}), 200
 
 
@@ -209,6 +192,7 @@ def boost_rules():
 @login_required
 def activate_boost():
     """Activate a FREE daily Pro boost only. Paid boosts go through /create-checkout."""
+    _expire_stale_boosts()
     data = request.get_json(force=True)
     listing_id = data.get("listing_id")
 
@@ -230,7 +214,6 @@ def activate_boost():
         }), 429
 
     now = datetime.utcnow()
-    _expire_stale_boosts()
 
     existing = Boost.query.filter(
         Boost.listing_id == listing_id,
@@ -270,6 +253,7 @@ def activate_boost():
 @login_required
 def create_boost_checkout():
     """Create a Stripe Checkout session for a paid boost."""
+    _expire_stale_boosts()
     stripe.api_key = current_app.config["STRIPE_SECRET_KEY"]
 
     data = request.get_json(force=True)
@@ -290,7 +274,6 @@ def create_boost_checkout():
         return jsonify({"error": "Forbidden"}), 403
 
     now = datetime.utcnow()
-    _expire_stale_boosts()
 
     existing = Boost.query.filter(
         Boost.listing_id == listing_id,
