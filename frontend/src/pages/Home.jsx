@@ -201,9 +201,9 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
             <span className="h2">Boosted</span>
             <IconChevronRight size={18} color="var(--muted)" />
           </div>
-          <div style={{ display:"flex", gap:10, overflowX:"auto", paddingBottom:4 }}>
+          <div className="boosted-grid">
             {featured.filter((l, i, arr) => arr.findIndex(x => x.id === l.id) === i).map(l => (
-              <Link key={l.id} to={`/listing/${l.id}`} className="boosted-card">
+              <Link key={l.id} to={`/listing/${l.id}`}>
                 <Card noPadding>
                   <div style={{ position:"relative" }}>
                     {l.images?.length > 0 ? (

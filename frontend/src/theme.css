@@ -86,16 +86,22 @@ a{ color: inherit; text-decoration:none; }
   gap:10px;
 }
 .grid > *{ min-width:0; overflow:hidden; }
-/* Boosted carousel cards — 1 size smaller than nearby grid */
-.boosted-card{ width:calc(25% - 8px); min-width:calc(25% - 8px); flex-shrink:0; }
+
+/* Boosted grid — 5 columns, 2 rows */
+.boosted-grid{
+  display:grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap:8px;
+}
+.boosted-grid > *{ min-width:0; overflow:hidden; }
 
 @media(max-width:520px){
   .grid{ grid-template-columns: repeat(2, 1fr); }
-  .boosted-card{ width:calc(40% - 6px); min-width:calc(40% - 6px); }
+  .boosted-grid{ grid-template-columns: repeat(3, 1fr); }
 }
 @media(min-width:769px){
   .grid{ grid-template-columns: repeat(4, 1fr); }
-  .boosted-card{ width:calc(20% - 8px); min-width:calc(20% - 8px); }
+  .boosted-grid{ grid-template-columns: repeat(5, 1fr); }
   .listing-hero{
     margin-left: 0 !important;
     margin-right: 0 !important;
