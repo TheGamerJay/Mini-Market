@@ -40,12 +40,15 @@ function boostTimeLeft(iso){
   if (!iso) return { text: "BOOSTED", bg: "linear-gradient(135deg, var(--cyan), var(--violet))" };
   const diff = (new Date(iso).getTime() - Date.now()) / 1000;
   if (diff <= 0) return { text: "Expired", bg: "#666" };
-  const text = diff < 3600 ? `${Math.ceil(diff/60)}m left`
-    : diff < 86400 ? `${Math.floor(diff/3600)}h ${Math.floor((diff%3600)/60)}m`
-    : `${Math.floor(diff/86400)}d ${Math.floor((diff%86400)/3600)}h`;
-  const bg = diff > 21600 ? "#27ae60"     // > 6h = green
-    : diff > 3600 ? "#f39c12"             // 1-6h = amber
-    : "#e74c3c";                          // < 1h = red
+  const h = Math.floor(diff / 3600);
+  const m = Math.floor((diff % 3600) / 60);
+  const s = Math.floor(diff % 60);
+  const pad = n => String(n).padStart(2, "0");
+  const text = diff >= 86400 ? `${Math.floor(diff/86400)}d ${h % 24}h`
+    : `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const bg = diff > 21600 ? "#27ae60"
+    : diff > 3600 ? "#f39c12"
+    : "#e74c3c";
   return { text, bg };
 }
 
@@ -107,10 +110,10 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
 
   useEffect(() => { loadFeed(); }, [sort]);
 
-  // Tick boost countdowns every 60s
+  // Tick boost countdowns every second for live timer
   useEffect(() => {
     if (!featured.length) return;
-    const t = setInterval(() => setBoostTick(n => n + 1), 60000);
+    const t = setInterval(() => setBoostTick(n => n + 1), 1000);
     return () => clearInterval(t);
   }, [featured.length]);
 
