@@ -52,6 +52,17 @@ def _seconds_until_reset():
     return int((midnight - now).total_seconds())
 
 
+def _expire_stale_boosts():
+    """Expire any boosts past their ends_at. Called before boost operations."""
+    now = datetime.utcnow()
+    count = Boost.query.filter(
+        Boost.status == "active", Boost.ends_at <= now,
+    ).update({"status": "expired"})
+    if count:
+        db.session.commit()
+    return count
+
+
 def _listing_to_dict(l, imgs, seller):
     """Serialize a listing for the featured response."""
     return {
@@ -70,13 +81,7 @@ def _listing_to_dict(l, imgs, seller):
 def featured():
     global _rotation_offset
     now = datetime.utcnow()
-
-    # Auto-expire stale boosts
-    expired_count = Boost.query.filter(
-        Boost.status == "active", Boost.ends_at <= now,
-    ).update({"status": "expired"})
-    if expired_count:
-        db.session.commit()
+    _expire_stale_boosts()
 
     active = Boost.query.filter(
         Boost.status == "active", Boost.ends_at > now,
@@ -173,6 +178,7 @@ def durations():
 @login_required
 def boost_status():
     """Return Pro boost status: whether free boost is available, countdown, etc."""
+    _expire_stale_boosts()
     is_pro = current_user.is_pro
     free_available = _free_boost_available(current_user)
     countdown_seconds = 0 if free_available else _seconds_until_reset()
@@ -224,13 +230,7 @@ def activate_boost():
         }), 429
 
     now = datetime.utcnow()
-
-    # Auto-expire stale boosts
-    Boost.query.filter(
-        Boost.listing_id == listing_id,
-        Boost.status == "active",
-        Boost.ends_at <= now,
-    ).update({"status": "expired"})
+    _expire_stale_boosts()
 
     existing = Boost.query.filter(
         Boost.listing_id == listing_id,
@@ -290,12 +290,7 @@ def create_boost_checkout():
         return jsonify({"error": "Forbidden"}), 403
 
     now = datetime.utcnow()
-    Boost.query.filter(
-        Boost.listing_id == listing_id,
-        Boost.status == "active",
-        Boost.ends_at <= now,
-    ).update({"status": "expired"})
-    db.session.commit()
+    _expire_stale_boosts()
 
     existing = Boost.query.filter(
         Boost.listing_id == listing_id,

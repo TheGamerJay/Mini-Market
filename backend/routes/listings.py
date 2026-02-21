@@ -17,10 +17,17 @@ listings_bp = Blueprint("listings", __name__)
 def _listing_to_dict(l: Listing):
     imgs = ListingImage.query.filter_by(listing_id=l.id).order_by(ListingImage.created_at.asc()).all()
     meet = SafeMeetLocation.query.filter_by(listing_id=l.id).first()
+    # Expire stale boosts for this listing so is_boosted is accurate
+    now = datetime.utcnow()
+    stale = Boost.query.filter(
+        Boost.listing_id == l.id, Boost.status == "active", Boost.ends_at <= now,
+    ).update({"status": "expired"})
+    if stale:
+        db.session.commit()
     active_boost = Boost.query.filter(
         Boost.listing_id == l.id,
         Boost.status == "active",
-        Boost.ends_at > datetime.utcnow()
+        Boost.ends_at > now
     ).first()
     observing_count = db.session.query(func.count(Observing.id)).filter_by(listing_id=l.id).scalar()
     view_count = db.session.query(func.count(ListingView.id)).filter_by(listing_id=l.id).scalar()
