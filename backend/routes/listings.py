@@ -54,6 +54,7 @@ def _listing_to_dict(l: Listing):
         "renewed_at": l.renewed_at.isoformat() if l.renewed_at else None,
         "bundle_discount_pct": l.bundle_discount_pct,
         "is_boosted": bool(active_boost),
+        "boost_ends_at": active_boost.ends_at.isoformat() if active_boost else None,
         "observing_count": observing_count,
         "view_count": view_count,
         "is_pro_seller": bool(seller and seller.is_pro),

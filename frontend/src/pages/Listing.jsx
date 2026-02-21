@@ -116,6 +116,20 @@ export default function Listing({ me, notify }){
     return () => clearInterval(t);
   }, [countdown > 0]);
 
+  // Auto-expire boost when boost_ends_at passes
+  useEffect(() => {
+    if (!listing?.boost_ends_at || !listing.is_boosted) return;
+    const remaining = new Date(listing.boost_ends_at).getTime() - Date.now();
+    if (remaining <= 0) {
+      setListing(prev => ({ ...prev, is_boosted: false, boost_ends_at: null }));
+      return;
+    }
+    const t = setTimeout(() => {
+      setListing(prev => ({ ...prev, is_boosted: false, boost_ends_at: null }));
+    }, remaining);
+    return () => clearTimeout(t);
+  }, [listing?.boost_ends_at, listing?.is_boosted]);
+
   const goBack = () => window.history.length > 1 ? nav(-1) : nav("/");
 
   const toggleObs = async () => {
