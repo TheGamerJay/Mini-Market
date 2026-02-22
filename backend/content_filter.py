@@ -65,6 +65,32 @@ CONTACT_BYPASS = [
 ]
 
 
+# ── Safe context words ──
+# If any of these appear near a prohibited weapon keyword, it's likely a toy/prop/costume
+SAFE_CONTEXT = [
+    "toy", "nerf", "water", "squirt", "foam", "plastic",
+    "costume", "cosplay", "prop", "replica", "fake",
+    "airsoft", "bb", "pellet",
+    "vintage", "antique", "collectible", "display",
+    "broken", "non-working", "non functioning", "decommissioned",
+    "kids", "children", "child", "baby",
+    "lego", "playmobil", "action figure", "figurine",
+    "video game", "gaming", "xbox", "playstation", "nintendo",
+    "movie", "film", "poster", "book", "comic",
+    "sticker", "patch", "keychain", "charm",
+    "case", "phone case", "holster",  # phone holster, case shaped like gun, etc
+    "t-shirt", "shirt", "hoodie", "hat", "cap",  # clothing with prints
+    "painting", "art", "print", "canvas",
+]
+
+# Weapon keywords that need safe-context checking (other prohibited items don't)
+WEAPON_KEYWORDS = {
+    "firearm", "handgun", "rifle", "shotgun", "pistol", "revolver",
+    "ammunition", "ammo", "silencer", "suppressor",
+    "switchblade", "brass knuckles", "stun gun", "taser",
+}
+
+
 def _normalize(text):
     """Lowercase and collapse whitespace for matching."""
     text = text.lower()
@@ -75,17 +101,34 @@ def _normalize(text):
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _has_safe_context(normalized_text):
+    """Check if the text contains safe-context words (toy, nerf, costume, etc.)."""
+    for word in SAFE_CONTEXT:
+        if " " in word:
+            if word in normalized_text:
+                return True
+        else:
+            if re.search(r"\b" + re.escape(word) + r"\b", normalized_text):
+                return True
+    return False
+
+
 def _check_list(text, word_list, category):
     """Check if any phrase from word_list appears in text."""
     normalized = _normalize(text)
     for phrase in word_list:
         # Use word boundary matching for single words, substring for phrases
         if " " in phrase:
-            if phrase in normalized:
-                return category
+            matched = phrase in normalized
         else:
-            if re.search(r"\b" + re.escape(phrase) + r"\b", normalized):
-                return category
+            matched = bool(re.search(r"\b" + re.escape(phrase) + r"\b", normalized))
+
+        if matched:
+            # For weapon keywords, allow if safe context is present
+            if category == "prohibited_item" and phrase in WEAPON_KEYWORDS:
+                if _has_safe_context(normalized):
+                    continue  # skip — it's a toy/prop/collectible
+            return category
     return None
 
 
