@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import TopBar from "../components/TopBar.jsx";
 import Card from "../components/Card.jsx";
 import Input from "../components/Input.jsx";
 import Button from "../components/Button.jsx";
-import { IconCamera, IconX } from "../components/Icons.jsx";
+import { IconCamera, IconX, IconPin } from "../components/Icons.jsx";
 import { api } from "../api.js";
 
 function money(cents) {
@@ -21,10 +21,13 @@ export default function EditListing({ notify }) {
   const [condition, setCondition] = useState("used");
   const [zip, setZip] = useState("");
   const [desc, setDesc] = useState("");
+  const [bundle, setBundle] = useState("");
+  const [isSold, setIsSold] = useState(false);
+  const [safeMeet, setSafeMeet] = useState(null);
+  const [renewedAt, setRenewedAt] = useState(null);
+  const [createdAt, setCreatedAt] = useState(null);
 
-  // existing images from server: [{id, url}]
   const [existingImages, setExistingImages] = useState([]);
-  // new files to upload
   const [newFiles, setNewFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
 
@@ -41,7 +44,11 @@ export default function EditListing({ notify }) {
       setCondition(l.condition || "used");
       setZip(l.zip || "");
       setDesc(l.description || "");
-      // parse image id from url: /api/listings/image/<uuid>
+      setBundle(l.bundle_discount_pct ? String(l.bundle_discount_pct) : "");
+      setIsSold(!!l.is_sold);
+      setSafeMeet(l.safe_meet || null);
+      setRenewedAt(l.renewed_at || null);
+      setCreatedAt(l.created_at || null);
       setExistingImages(
         (l.images || []).map(url => ({ id: url.split("/").pop(), url }))
       );
@@ -88,6 +95,7 @@ export default function EditListing({ notify }) {
         category,
         condition,
         zip,
+        bundle_discount_pct: bundle ? parseInt(bundle) || null : null,
       });
 
       if (newFiles.length) {
@@ -103,6 +111,43 @@ export default function EditListing({ notify }) {
     }
   };
 
+  const toggleSold = async () => {
+    try {
+      await api.updateListing(id, { is_sold: !isSold });
+      setIsSold(prev => !prev);
+      notify(isSold ? "Marked as available." : "Marked as sold.");
+    } catch (err) {
+      notify(err.message);
+    }
+  };
+
+  const renew = async () => {
+    try {
+      const res = await api.renewListing(id);
+      setRenewedAt(res.renewed_at);
+      notify("Listing renewed for 30 days!");
+    } catch (err) {
+      notify(err.message);
+    }
+  };
+
+  const deleteListing = async () => {
+    if (!window.confirm("Delete this listing? This can't be undone.")) return;
+    try {
+      await api.deleteListing(id);
+      notify("Listing deleted.");
+      nav("/profile");
+    } catch (err) {
+      notify(err.message);
+    }
+  };
+
+  // Expiry calculation
+  const base = renewedAt || createdAt;
+  const daysOld = base ? Math.floor((Date.now() - new Date(base).getTime()) / 86400000) : 0;
+  const daysLeft = 30 - daysOld;
+  const showRenew = daysLeft <= 7;
+
   const totalImages = existingImages.length + newFiles.length;
 
   if (loading) return <div style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>Loading...</div>;
@@ -111,6 +156,27 @@ export default function EditListing({ notify }) {
     <>
       <TopBar title="Edit listing" />
       <div style={{ height: 12 }} />
+
+      {/* Expiry / renew banner */}
+      {showRenew && (
+        <div style={{
+          marginBottom: 12, padding: "10px 14px", borderRadius: 12,
+          background: daysLeft <= 0 ? "rgba(231,76,60,.15)" : "rgba(255,165,0,.12)",
+          border: `1px solid ${daysLeft <= 0 ? "var(--red,#e74c3c)" : "orange"}`,
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: daysLeft <= 0 ? "var(--red,#e74c3c)" : "orange" }}>
+              {daysLeft <= 0 ? "Listing expired" : `Expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}
+            </div>
+            <div className="muted" style={{ fontSize: 11 }}>Renew to keep it visible</div>
+          </div>
+          <button onClick={renew} style={{
+            padding: "8px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+            background: "var(--cyan)", border: "none", color: "#000", cursor: "pointer",
+          }}>Renew</button>
+        </div>
+      )}
 
       <Card>
         <form onSubmit={onSave} className="col">
@@ -153,6 +219,13 @@ export default function EditListing({ notify }) {
 
           <Input label="ZIP Code" placeholder="e.g. 01826" value={zip} onChange={e => setZip(e.target.value.replace(/[^0-9]/g, "").slice(0, 5))} />
 
+          <Input
+            label="Bundle discount % (optional)"
+            placeholder="e.g. 10 for 10% off"
+            value={bundle}
+            onChange={e => setBundle(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+          />
+
           {/* Photos */}
           <div className="col" style={{ gap: 8 }}>
             <div className="muted" style={{ fontSize: 13 }}>Photos ({totalImages})</div>
@@ -165,7 +238,6 @@ export default function EditListing({ notify }) {
               style={{ display: "none" }}
             />
             <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingTop: 4, flexWrap: "wrap" }}>
-              {/* Existing images */}
               {existingImages.map(img => (
                 <div key={img.id} style={{ position: "relative", flexShrink: 0 }}>
                   <img src={`${api.base}${img.url}`} alt="" style={{
@@ -175,7 +247,7 @@ export default function EditListing({ notify }) {
                   <button type="button" onClick={() => deleteExistingImage(img.id)} style={{
                     position: "absolute", top: -6, right: -6,
                     width: 20, height: 20, borderRadius: "50%",
-                    background: "var(--red, #e74c3c)", border: "none",
+                    background: "var(--red,#e74c3c)", border: "none",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     cursor: "pointer", padding: 0,
                   }}>
@@ -183,8 +255,6 @@ export default function EditListing({ notify }) {
                   </button>
                 </div>
               ))}
-
-              {/* New files preview */}
               {newPreviews.map((src, i) => (
                 <div key={`new-${i}`} style={{ position: "relative", flexShrink: 0 }}>
                   <img src={src} alt="" style={{
@@ -194,7 +264,7 @@ export default function EditListing({ notify }) {
                   <button type="button" onClick={() => removeNewFile(i)} style={{
                     position: "absolute", top: -6, right: -6,
                     width: 20, height: 20, borderRadius: "50%",
-                    background: "var(--red, #e74c3c)", border: "none",
+                    background: "var(--red,#e74c3c)", border: "none",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     cursor: "pointer", padding: 0,
                   }}>
@@ -202,8 +272,6 @@ export default function EditListing({ notify }) {
                   </button>
                 </div>
               ))}
-
-              {/* Add button */}
               <button type="button" onClick={() => fileRef.current?.click()} style={{
                 width: 72, height: 72, borderRadius: 10, flexShrink: 0,
                 border: "2px dashed var(--border)", background: "none",
@@ -224,14 +292,9 @@ export default function EditListing({ notify }) {
               placeholder="Add details about your item..."
               rows={4}
               style={{
-                width: "100%",
-                padding: "12px 12px",
-                borderRadius: 14,
-                border: "1px solid var(--border)",
-                background: "var(--input-bg)",
-                color: "var(--text)",
-                outline: "none",
-                resize: "vertical",
+                width: "100%", padding: "12px 12px", borderRadius: 14,
+                border: "1px solid var(--border)", background: "var(--input-bg)",
+                color: "var(--text)", outline: "none", resize: "vertical",
               }}
             />
           </div>
@@ -239,6 +302,59 @@ export default function EditListing({ notify }) {
           <Button disabled={busy}>{busy ? "Saving..." : "Save changes"}</Button>
         </form>
       </Card>
+
+      {/* Safe meetup location */}
+      <div style={{ height: 12 }} />
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: safeMeet ? 10 : 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <IconPin size={16} color="var(--cyan)" />
+            <span style={{ fontWeight: 700, fontSize: 14 }}>Safe meetup location</span>
+          </div>
+          <Link to={`/listing/${id}/meetup`} style={{
+            fontSize: 12, fontWeight: 700, color: "var(--cyan)", textDecoration: "none",
+          }}>
+            {safeMeet ? "Change" : "Set location"}
+          </Link>
+        </div>
+        {safeMeet ? (
+          <div style={{ padding: "10px 12px", borderRadius: 10, background: "var(--panel2)", border: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{safeMeet.place_name}</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{safeMeet.address}</div>
+          </div>
+        ) : (
+          <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+            No meetup spot set. Buyers will see your ZIP area only.
+          </div>
+        )}
+      </Card>
+
+      {/* Sold toggle + Delete */}
+      <div style={{ height: 12 }} />
+      <Card>
+        <div className="col" style={{ gap: 10 }}>
+          <button onClick={toggleSold} style={{
+            width: "100%", padding: "12px 16px", borderRadius: 14, fontSize: 14, fontWeight: 700,
+            cursor: "pointer", fontFamily: "inherit",
+            background: isSold ? "rgba(46,204,113,.12)" : "rgba(62,224,255,.08)",
+            border: `1.5px solid ${isSold ? "var(--green,#2ecc71)" : "var(--cyan)"}`,
+            color: isSold ? "var(--green,#2ecc71)" : "var(--cyan)",
+          }}>
+            {isSold ? "Mark as Available" : "Mark as Sold"}
+          </button>
+
+          <button onClick={deleteListing} style={{
+            width: "100%", padding: "12px 16px", borderRadius: 14, fontSize: 14, fontWeight: 700,
+            cursor: "pointer", fontFamily: "inherit",
+            background: "rgba(231,76,60,.10)", border: "1.5px solid var(--red,#e74c3c)",
+            color: "var(--red,#e74c3c)",
+          }}>
+            Delete listing
+          </button>
+        </div>
+      </Card>
+
+      <div style={{ height: 24 }} />
     </>
   );
 }
