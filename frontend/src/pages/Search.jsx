@@ -99,15 +99,15 @@ export default function Search({ notify }){
   return (
     <>
       {/* Search header */}
-      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 0" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10, padding:"12px 0", width:"100%", overflow:"hidden" }}>
         <button onClick={() => nav(-1)} style={{
           background:"none", border:"none", color:"var(--text)",
-          cursor:"pointer", padding:4, display:"flex",
+          cursor:"pointer", padding:4, display:"flex", flexShrink:0,
         }}>
           <IconBack size={22} />
         </button>
 
-        <form onSubmit={onSubmit} style={{ flex:1, display:"flex", alignItems:"center", gap:10,
+        <form onSubmit={onSubmit} style={{ flex:1, minWidth:0, display:"flex", alignItems:"center", gap:10,
           padding:"10px 14px", borderRadius:14,
           background:"var(--panel)", border:"1px solid var(--border)",
         }}>
@@ -130,7 +130,7 @@ export default function Search({ notify }){
           borderRadius:12, padding:"10px 12px", cursor:"pointer",
           color: showFilters || activeFilterCount ? "var(--cyan)" : "var(--muted)",
           display:"flex", alignItems:"center", gap:4, fontSize:12, fontWeight:700,
-          fontFamily:"inherit", position:"relative",
+          fontFamily:"inherit", position:"relative", flexShrink:0,
         }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/>
