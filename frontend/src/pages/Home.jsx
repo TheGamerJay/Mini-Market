@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Card from "../components/Card.jsx";
 import SkeletonCard from "../components/SkeletonCard.jsx";
-import { IconSearch, IconChevronRight, IconCamera, IconEye, IconBell } from "../components/Icons.jsx";
+import { IconSearch, IconChevronRight, IconCamera, IconBell } from "../components/Icons.jsx";
 import SwipeCards from "../components/SwipeCards.jsx";
 import { api } from "../api.js";
 
@@ -14,22 +14,26 @@ const SORT_OPTIONS = [
 ];
 
 const CATEGORIES = [
-  "All", "Electronics", "Clothing", "Furniture", "Art",
-  "Books", "Sports", "Toys", "Home", "Auto", "Other"
+  { key:"All",         icon:"✨" },
+  { key:"Electronics", icon:"📱" },
+  { key:"Clothing",    icon:"👕" },
+  { key:"Furniture",   icon:"🪑" },
+  { key:"Art",         icon:"🎨" },
+  { key:"Books",       icon:"📚" },
+  { key:"Sports",      icon:"⚽" },
+  { key:"Toys",        icon:"🎮" },
+  { key:"Home",        icon:"🏠" },
+  { key:"Auto",        icon:"🚗" },
+  { key:"Other",       icon:"📦" },
 ];
 
-const CATEGORY_ICONS = {
-  Electronics: "\u{1F4F1}",
-  Clothing: "\u{1F455}",
-  Furniture: "\u{1FA91}",
-  Art: "\u{1F3A8}",
-  Books: "\u{1F4DA}",
-  Sports: "\u26BD",
-  Toys: "\u{1F3AE}",
-  Home: "\u{1F3E0}",
-  Auto: "\u{1F697}",
-  Other: "\u{1F4E6}",
-};
+const SEARCH_PLACEHOLDERS = [
+  "Search for electronics near you...",
+  "Find deals in your area...",
+  "What are you looking for?",
+  "List your item in seconds...",
+  "Search thousands of local listings...",
+];
 
 function money(cents){
   const dollars = cents / 100;
@@ -37,18 +41,15 @@ function money(cents){
 }
 
 function boostTimeLeft(iso){
-  if (!iso) return { text: "BOOSTED", bg: "linear-gradient(135deg, var(--cyan), var(--violet))" };
+  if (!iso) return { text:"BOOSTED", bg:"linear-gradient(135deg,var(--cyan),var(--violet))" };
   const diff = (new Date(iso).getTime() - Date.now()) / 1000;
-  if (diff <= 0) return { text: "Expired", bg: "#666" };
+  if (diff <= 0) return { text:"Expired", bg:"#666" };
   const h = Math.floor(diff / 3600);
   const m = Math.floor((diff % 3600) / 60);
   const s = Math.floor(diff % 60);
   const pad = n => String(n).padStart(2, "0");
-  const text = diff >= 86400 ? `${Math.floor(diff/86400)}d ${h % 24}h`
-    : `${pad(h)}:${pad(m)}:${pad(s)}`;
-  const bg = diff > 21600 ? "#27ae60"
-    : diff > 3600 ? "#f39c12"
-    : "#e74c3c";
+  const text = diff >= 86400 ? `${Math.floor(diff/86400)}d ${h%24}h` : `${pad(h)}:${pad(m)}:${pad(s)}`;
+  const bg = diff > 21600 ? "#27ae60" : diff > 3600 ? "#f39c12" : "#e74c3c";
   return { text, bg };
 }
 
@@ -62,6 +63,13 @@ function timeAgo(iso){
   return `${Math.floor(diff/604800)}w ago`;
 }
 
+const CONDITION_COLORS = {
+  "new": { bg:"rgba(46,204,113,.18)", color:"#2ecc71" },
+  "like new": { bg:"rgba(62,224,255,.15)", color:"var(--cyan)" },
+  "used": { bg:"rgba(255,255,255,.10)", color:"var(--muted)" },
+  "fair": { bg:"rgba(243,156,18,.15)", color:"#f39c12" },
+};
+
 export default function Home({ me, notify, unreadNotifs = 0 }){
   const [listings, setListings] = useState([]);
   const [featured, setFeatured] = useState([]);
@@ -73,10 +81,21 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
   const [swipeMode, setSwipeMode] = useState(false);
   const [sort, setSort] = useState("newest");
   const [, setBoostTick] = useState(0);
+  const [placeholder, setPlaceholder] = useState(SEARCH_PLACEHOLDERS[0]);
   const nav = useNavigate();
   const sentinelRef = useRef(null);
   const hasMoreRef = useRef(false);
   const loadingMoreRef = useRef(false);
+
+  // Rotate search placeholder
+  useEffect(() => {
+    let i = 0;
+    const t = setInterval(() => {
+      i = (i + 1) % SEARCH_PLACEHOLDERS.length;
+      setPlaceholder(SEARCH_PLACEHOLDERS[i]);
+    }, 3000);
+    return () => clearInterval(t);
+  }, []);
 
   const loadFeed = async (reset = true) => {
     if (reset) setBusy(true);
@@ -110,7 +129,6 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
 
   useEffect(() => { loadFeed(); }, [sort]);
 
-  // Tick boost countdowns every second for live timer
   useEffect(() => {
     if (!featured.length) return;
     const t = setInterval(() => setBoostTick(n => n + 1), 1000);
@@ -122,11 +140,10 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
     if (!el) return;
     const obs = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && hasMoreRef.current && !loadingMoreRef.current) {
+        if (entry.isIntersecting && hasMoreRef.current && !loadingMoreRef.current)
           loadMoreRef.current(false);
-        }
       },
-      { rootMargin: "200px" }
+      { rootMargin:"200px" }
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -136,27 +153,50 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
     ? listings
     : listings.filter(l => (l.category || "").toLowerCase() === activeCategory.toLowerCase());
 
+  const firstName = me?.user?.display_name?.split(" ")[0] || me?.user?.email?.split("@")[0] || "";
+
   return (
     <>
       {/* ── Header ── */}
-      <div style={{ display:"flex", justifyContent:"center", padding:"14px 0 6px" }}>
-        <img src={document.documentElement.getAttribute("data-theme") === "light" ? "/pocketmarket_favicon_dark_512x512.png" : "/pocketmarket_favicon_transparent_512x512.png"} alt="Pocket Market" style={{ width:"60%", maxWidth:240, height:"auto" }} />
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"10px 0 4px" }}>
+        <img
+          src={document.documentElement.getAttribute("data-theme") === "light"
+            ? "/pocketmarket_favicon_dark_512x512.png"
+            : "/pocketmarket_favicon_transparent_512x512.png"}
+          alt="Pocket Market"
+          style={{ width:"55%", maxWidth:220, height:"auto" }}
+        />
+        <div style={{
+          fontSize:11, fontWeight:600, color:"var(--muted)",
+          letterSpacing:"0.5px", marginTop:2,
+        }}>
+          Buy Local.&nbsp;&nbsp;Sell Smart.&nbsp;&nbsp;Meet Safe.
+        </div>
       </div>
 
+      {/* ── Welcome back ── */}
+      {me?.authed && firstName && (
+        <div style={{ textAlign:"center", fontSize:13, color:"var(--muted)", marginBottom:4, marginTop:2 }}>
+          Welcome back, <span style={{ color:"var(--cyan)", fontWeight:700 }}>{firstName}</span> 👋
+        </div>
+      )}
+
       {/* ── Search bar + bell ── */}
-      <div style={{ display:"flex", gap:10, alignItems:"center", marginTop:8 }}>
+      <div style={{ display:"flex", gap:10, alignItems:"center", marginTop:6 }}>
         <div
           onClick={() => nav("/search")}
           style={{
-            flex:1, display:"flex", alignItems:"center", gap:10,
+            flex:1, minWidth:0, display:"flex", alignItems:"center", gap:10,
             padding:"12px 14px", borderRadius:14,
             background:"var(--panel)", border:"1px solid var(--border)", cursor:"pointer",
           }}
         >
           <IconSearch size={18} color="var(--muted)" />
-          <span className="muted" style={{ fontSize:14 }}>Search for items...</span>
+          <span className="muted" style={{ fontSize:14, overflow:"hidden", whiteSpace:"nowrap", textOverflow:"ellipsis" }}>
+            {placeholder}
+          </span>
         </div>
-        <Link to="/notifications" style={{ position:"relative", display:"flex" }}>
+        <Link to="/notifications" style={{ position:"relative", display:"flex", flexShrink:0 }}>
           <IconBell size={24} color="var(--muted)" />
           {unreadNotifs > 0 && (
             <div style={{
@@ -173,56 +213,64 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
         </Link>
       </div>
 
-      {/* ── Category grid ── */}
+      {/* ── Category horizontal scroll ── */}
       <div style={{
-        display:"grid", gridTemplateColumns:"repeat(5, 1fr)", gap:8,
-        padding:"12px 0 4px",
+        display:"flex", gap:8, overflowX:"auto", padding:"12px 0 4px",
+        scrollbarWidth:"none", msOverflowStyle:"none",
       }}>
-        {Object.entries(CATEGORY_ICONS).map(([cat, icon]) => (
+        {CATEGORIES.map(({ key, icon }) => (
           <button
-            key={cat}
-            onClick={() => setActiveCategory(activeCategory === cat ? "All" : cat)}
+            key={key}
+            onClick={() => setActiveCategory(activeCategory === key ? "All" : key)}
             style={{
-              display:"flex", flexDirection:"column", alignItems:"center", gap:4,
-              padding:"10px 4px", borderRadius:12, cursor:"pointer",
-              border: activeCategory === cat ? "1.5px solid var(--cyan)" : "1px solid var(--border)",
-              background: activeCategory === cat ? "rgba(62,224,255,.12)" : "var(--panel)",
-              color: activeCategory === cat ? "var(--cyan)" : "var(--text)",
-              fontFamily:"inherit",
+              display:"flex", flexDirection:"column", alignItems:"center", gap:3,
+              padding:"9px 12px", borderRadius:14, cursor:"pointer", flexShrink:0,
+              border: activeCategory === key ? "1.5px solid var(--cyan)" : "1px solid var(--border)",
+              background: activeCategory === key ? "rgba(62,224,255,.14)" : "var(--panel)",
+              color: activeCategory === key ? "var(--cyan)" : "var(--text)",
+              fontFamily:"inherit", minWidth:56,
+              boxShadow: activeCategory === key ? "0 0 14px rgba(62,224,255,.22)" : "none",
+              transform: activeCategory === key ? "scale(1.06)" : "scale(1)",
+              transition:"all 150ms ease",
             }}
           >
-            <span style={{ fontSize:22 }}>{icon}</span>
-            <span style={{ fontSize:9, fontWeight:700 }}>{cat}</span>
+            <span style={{ fontSize:20 }}>{icon}</span>
+            <span style={{ fontSize:9, fontWeight:700 }}>{key}</span>
           </button>
         ))}
       </div>
+      {/* Hide scrollbar in webkit */}
+      <style>{`.cat-scroll::-webkit-scrollbar{display:none}`}</style>
 
       {/* ── Refresh + Swipe mode ── */}
-      <div style={{ display:"flex", justifyContent:"center", gap:12, padding:"4px 0" }}>
+      <div style={{ display:"flex", justifyContent:"center", gap:12, padding:"4px 0 2px" }}>
         <button onClick={() => loadFeed(true)} disabled={busy} style={{
           background:"none", border:"none", color:"var(--cyan)",
           fontSize:12, fontWeight:700, cursor:"pointer", padding:"4px 12px",
-          fontFamily:"inherit",
+          fontFamily:"inherit", opacity: busy ? 0.5 : 1,
         }}>
-          {busy ? "Loading..." : "\u21BB Refresh"}
+          {busy ? "Loading..." : "↻ Refresh"}
         </button>
         {filtered.length > 0 && (
-          <button onClick={() => setSwipeMode(true)} style={{
-            background:"linear-gradient(135deg, rgba(62,224,255,.12), rgba(164,122,255,.12))",
-            border:"1px solid rgba(62,224,255,.25)", borderRadius:16,
-            color:"var(--cyan)", fontSize:12, fontWeight:700,
-            cursor:"pointer", padding:"4px 14px", fontFamily:"inherit",
-          }}>
-            {"\ud83d\udc46"} Swipe Mode
-          </button>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+            <button onClick={() => setSwipeMode(true)} style={{
+              background:"linear-gradient(135deg,rgba(62,224,255,.12),rgba(164,122,255,.12))",
+              border:"1px solid rgba(62,224,255,.28)", borderRadius:16,
+              color:"var(--cyan)", fontSize:12, fontWeight:700,
+              cursor:"pointer", padding:"5px 14px", fontFamily:"inherit",
+            }}>
+              👆 Swipe Mode
+            </button>
+            <span style={{ fontSize:9, color:"var(--muted)", letterSpacing:"0.2px" }}>Browse items Tinder-style</span>
+          </div>
         )}
       </div>
 
       {/* ── Boosted / Featured ── */}
       {featured.length > 0 && (
         <>
-          <div className="section-header" style={{ marginTop:6 }}>
-            <span className="h2">Boosted</span>
+          <div className="section-header" style={{ marginTop:8 }}>
+            <span className="h2">⚡ Boosted</span>
             <IconChevronRight size={18} color="var(--muted)" />
           </div>
           <div className="boosted-grid">
@@ -231,30 +279,36 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
                 <Card noPadding>
                   <div style={{ position:"relative" }}>
                     {l.images?.length > 0 ? (
-                      <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image" onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
+                      <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image"
+                        onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
                     ) : (
                       <div className="card-image-placeholder"><IconCamera size={28} /></div>
                     )}
+                    {/* gradient overlay */}
+                    <div style={{
+                      position:"absolute", bottom:0, left:0, right:0, height:"40%",
+                      background:"linear-gradient(to top,rgba(0,0,0,.55),transparent)",
+                      borderRadius:"0 0 8px 8px", pointerEvents:"none",
+                    }}/>
                     {l.is_sold && (
                       <div style={{
-                        position:"absolute", top:6, left:6,
-                        background:"var(--red, #e74c3c)", color:"#fff",
-                        fontSize:9, fontWeight:800, padding:"2px 6px",
-                        borderRadius:5, letterSpacing:0.5,
+                        position:"absolute", top:5, left:5,
+                        background:"var(--red,#e74c3c)", color:"#fff",
+                        fontSize:8, fontWeight:800, padding:"2px 5px", borderRadius:4,
                       }}>SOLD</div>
                     )}
                     {(() => { const b = boostTimeLeft(l.boost_ends_at); return (
                       <div style={{
-                        position:"absolute", top:6, right:6,
-                        background: b.bg, color:"#fff",
+                        position:"absolute", top:5, right:5,
+                        background:b.bg, color:"#fff",
                         fontSize:7, fontWeight:800, padding:"2px 5px",
                         borderRadius:4, letterSpacing:0.3,
                       }}>{b.text}</div>
                     ); })()}
                   </div>
-                  <div style={{ padding:"8px 10px" }}>
-                    <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.title}</div>
-                    <div style={{ marginTop:2, fontSize:12, fontWeight:800 }}>{money(l.price_cents)}</div>
+                  <div style={{ padding:"7px 8px" }}>
+                    <div style={{ fontWeight:700, fontSize:11, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{l.title}</div>
+                    <div style={{ marginTop:2, fontSize:12, fontWeight:800, color:"var(--cyan)" }}>{money(l.price_cents)}</div>
                   </div>
                 </Card>
               </Link>
@@ -265,7 +319,7 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
 
       {/* ── Nearby Items ── */}
       <div className="section-header">
-        <span className="h2">{activeCategory === "All" ? "Nearby Items" : activeCategory}</span>
+        <span className="h2">{activeCategory === "All" ? "Items Near You" : activeCategory}</span>
         <select value={sort} onChange={e => setSort(e.target.value)} style={{
           background:"var(--input-bg)", border:"1px solid var(--cyan)", borderRadius:8,
           color:"var(--cyan)", fontSize:12, fontWeight:700, padding:"6px 10px",
@@ -280,51 +334,71 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
           [...Array(6)].map((_, i) => <SkeletonCard key={i} />)
         ) : filtered.length === 0 ? (
           <Card><div className="muted">{activeCategory === "All" ? "No items yet. Be the first to post!" : `No ${activeCategory.toLowerCase()} items found.`}</div></Card>
-        ) : filtered.map((l, idx) => (
-          <React.Fragment key={l.id}>
-            <Link to={`/listing/${l.id}`}>
-              <Card noPadding>
-                <div style={{ position:"relative" }}>
-                  {l.images?.length > 0 ? (
-                    <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image" onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
-                  ) : (
-                    <div className="card-image-placeholder"><IconCamera size={28} /></div>
-                  )}
-                  {l.is_sold && (
-                    <div style={{
-                      position:"absolute", top:6, left:6,
-                      background:"var(--red, #e74c3c)", color:"#fff",
-                      fontSize:9, fontWeight:800, padding:"2px 6px",
-                      borderRadius:5, letterSpacing:0.5,
-                    }}>SOLD</div>
-                  )}
-                  {l.is_pro_seller && !l.is_sold && (
-                    <div style={{
-                      position:"absolute", top:6, right:6,
-                      background:"linear-gradient(135deg, var(--cyan), var(--violet))", color:"#fff",
-                      fontSize:8, fontWeight:800, padding:"2px 5px",
-                      borderRadius:4, letterSpacing:0.5,
-                    }}>PRO</div>
-                  )}
+        ) : filtered.map(l => (
+          <Link key={l.id} to={`/listing/${l.id}`}>
+            <Card noPadding>
+              <div style={{ position:"relative" }}>
+                {l.images?.length > 0 ? (
+                  <img src={`${api.base}${l.images[0]}`} alt={l.title} className="card-image"
+                    onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
+                ) : (
+                  <div className="card-image-placeholder"><IconCamera size={28} /></div>
+                )}
+                {/* gradient overlay */}
+                <div style={{
+                  position:"absolute", bottom:0, left:0, right:0, height:"35%",
+                  background:"linear-gradient(to top,rgba(0,0,0,.5),transparent)",
+                  pointerEvents:"none",
+                }}/>
+                {l.is_sold && (
+                  <div style={{
+                    position:"absolute", top:5, left:5,
+                    background:"var(--red,#e74c3c)", color:"#fff",
+                    fontSize:9, fontWeight:800, padding:"2px 6px",
+                    borderRadius:5, letterSpacing:0.5,
+                  }}>SOLD</div>
+                )}
+                {l.safe_meet && !l.is_sold && (
+                  <div style={{
+                    position:"absolute", top:5, left:5,
+                    background:"rgba(0,0,0,.60)", color:"var(--cyan)",
+                    fontSize:8, fontWeight:800, padding:"2px 5px",
+                    borderRadius:4,
+                  }}>🛡</div>
+                )}
+                {l.is_pro_seller && !l.is_sold && (
+                  <div style={{
+                    position:"absolute", top:5, right:5,
+                    background:"linear-gradient(135deg,var(--cyan),var(--violet))", color:"#fff",
+                    fontSize:8, fontWeight:800, padding:"2px 5px",
+                    borderRadius:4, letterSpacing:0.5,
+                  }}>PRO</div>
+                )}
+              </div>
+              <div style={{ padding:"8px 10px" }}>
+                <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                  {l.title}
                 </div>
-                <div style={{ padding:"8px 10px" }}>
-                  <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                    {l.title}
-                  </div>
-                  <div style={{ marginTop:2, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <span style={{ fontWeight:800, fontSize:12 }}>{money(l.price_cents)}</span>
-                    <span className="muted" style={{ fontSize:10 }}>{timeAgo(l.created_at)}</span>
-                  </div>
-                  {l.seller_rating_count > 0 && (
-                    <div className="muted" style={{ fontSize:9, marginTop:2 }}>
-                      {l.seller_rating_avg}% positive ({l.seller_rating_count})
-                    </div>
-                  )}
+                <div style={{ marginTop:3, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontWeight:800, fontSize:12, color:"var(--cyan)" }}>{money(l.price_cents)}</span>
+                  {l.condition && (() => {
+                    const s = CONDITION_COLORS[l.condition.toLowerCase()] || CONDITION_COLORS["used"];
+                    return (
+                      <span style={{
+                        fontSize:8, fontWeight:700, padding:"2px 6px", borderRadius:6,
+                        background:s.bg, color:s.color,
+                      }}>
+                        {l.condition.charAt(0).toUpperCase() + l.condition.slice(1)}
+                      </span>
+                    );
+                  })()}
                 </div>
-              </Card>
-            </Link>
-
-          </React.Fragment>
+                <div style={{ marginTop:2 }} className="muted">
+                  <span style={{ fontSize:9 }}>{timeAgo(l.created_at)}</span>
+                </div>
+              </div>
+            </Card>
+          </Link>
         ))}
       </div>
 
@@ -332,7 +406,7 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
       <div ref={sentinelRef} style={{ height:1 }} />
       {loadingMore && (
         <div style={{ display:"flex", justifyContent:"center", padding:"14px 0" }}>
-          <span className="muted" style={{ fontSize:13 }}>Loading...</span>
+          <span className="muted" style={{ fontSize:13 }}>Loading more...</span>
         </div>
       )}
 
@@ -347,4 +421,3 @@ export default function Home({ me, notify, unreadNotifs = 0 }){
     </>
   );
 }
-
