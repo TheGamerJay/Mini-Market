@@ -532,6 +532,24 @@ def upload_images(listing_id):
     return jsonify({"ok": True, "images": saved}), 201
 
 
+@listings_bp.delete("/<listing_id>/images/<image_id>")
+@login_required
+def delete_listing_image(listing_id, image_id):
+    l = db.session.get(Listing, listing_id)
+    if not l:
+        return jsonify({"error": "Not found"}), 404
+    if l.user_id != current_user.id:
+        return jsonify({"error": "Forbidden"}), 403
+
+    img = db.session.get(ListingImage, image_id)
+    if not img or img.listing_id != l.id:
+        return jsonify({"error": "Image not found"}), 404
+
+    db.session.delete(img)
+    db.session.commit()
+    return jsonify({"ok": True}), 200
+
+
 @listings_bp.get("/<listing_id>/similar")
 def similar_listings(listing_id):
     l = db.session.get(Listing, listing_id)

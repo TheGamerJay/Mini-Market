@@ -38,6 +38,7 @@ import MeetupConfirm from "./pages/MeetupConfirm.jsx";
 import Verify from "./pages/Verify.jsx";
 import Admin from "./pages/Admin.jsx";
 import NotFound from "./pages/NotFound.jsx";
+import EditListing from "./pages/EditListing.jsx";
 
 // Apply stored theme on load
 (function(){
@@ -170,6 +171,11 @@ export default function App(){
           <Route path="/listing/:id" element={
             <RequireAuth authed={me.authed} loading={me.loading}>
               <Listing me={me} notify={notify} />
+            </RequireAuth>
+          }/>
+          <Route path="/listing/:id/edit" element={
+            <RequireAuth authed={me.authed} loading={me.loading}>
+              <EditListing notify={notify} />
             </RequireAuth>
           }/>
           <Route path="/listing/:id/meetup" element={

@@ -367,6 +367,17 @@ export default function Profile({ me, notify, refreshMe }){
                       {l.is_sold && <span style={{ fontSize:11, color:"var(--cyan)", fontWeight:700 }}>SOLD</span>}
                     </div>
                   </div>
+                  {!selectMode && (
+                    <Link
+                      to={`/listing/${l.id}/edit`}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        padding:"6px 10px", borderRadius:8, fontSize:11, fontWeight:700,
+                        background:"var(--panel2)", border:"1px solid var(--border)", color:"var(--text)",
+                        textDecoration:"none", flexShrink:0,
+                      }}
+                    >Edit</Link>
+                  )}
                 </div>
               </div>
             ))}

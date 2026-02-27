@@ -19,7 +19,7 @@ class Config:
     RESET_TOKEN_EXPIRES_SECONDS = int(os.getenv("RESET_TOKEN_EXPIRES_SECONDS", "3600"))
 
     UPLOAD_FOLDER = os.getenv("UPLOAD_FOLDER", "uploads")
-    MAX_CONTENT_LENGTH_MB = int(os.getenv("MAX_CONTENT_LENGTH_MB", "10"))
+    MAX_CONTENT_LENGTH_MB = int(os.getenv("MAX_CONTENT_LENGTH_MB", "50"))
 
     # Session cookie settings for HTTPS (Railway)
     SESSION_COOKIE_SAMESITE = "Lax"

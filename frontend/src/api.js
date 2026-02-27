@@ -46,11 +46,20 @@ export const api = {
   updateListing: (id, payload) => req(`/api/listings/${id}`, { method:"PUT", body: payload }),
   deleteListing: (id) => req(`/api/listings/${id}`, { method:"DELETE" }),
 
-  uploadListingImages: (id, files) => {
-    const form = new FormData();
-    for (const f of files) form.append("files", f);
-    return req(`/api/listings/${id}/images`, { method:"POST", body: form, isForm:true, headers:{} });
+  uploadListingImages: async (id, files) => {
+    // Upload one at a time to avoid 413 Content Too Large errors
+    const results = [];
+    for (const f of files) {
+      const form = new FormData();
+      form.append("files", f);
+      const r = await req(`/api/listings/${id}/images`, { method:"POST", body: form, isForm:true, headers:{} });
+      results.push(r);
+    }
+    return results[results.length - 1] || { ok: true, images: [] };
   },
+
+  deleteListingImage: (listingId, imageId) =>
+    req(`/api/listings/${listingId}/images/${imageId}`, { method:"DELETE" }),
 
   toggleObserving: (listingId) => req(`/api/observing/toggle/${listingId}`, { method:"POST" }),
   myObserving: () => req("/api/observing"),
