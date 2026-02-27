@@ -250,6 +250,14 @@ def search():
     if max_price is not None:
         query = query.filter(Listing.price_cents <= int(max_price * 100))
 
+    has_safe_meet = request.args.get("has_safe_meet") == "1"
+    if has_safe_meet:
+        query = query.filter(
+            db.session.query(SafeMeetLocation).filter(
+                SafeMeetLocation.listing_id == Listing.id
+            ).exists()
+        )
+
     user_lat = request.args.get("lat", type=float)
     user_lng = request.args.get("lng", type=float)
     radius_km = request.args.get("radius_km", 50, type=float)
