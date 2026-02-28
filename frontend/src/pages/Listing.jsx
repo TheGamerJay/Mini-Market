@@ -2,12 +2,18 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import Card from "../components/Card.jsx";
 import Button from "../components/Button.jsx";
-import Input from "../components/Input.jsx";
 import { IconBack, IconCamera, IconPin, IconEye, IconEnvelope, IconChevronRight, IconPerson } from "../components/Icons.jsx";
 import ListingMap from "../components/ListingMap.jsx";
 import DistanceLabel from "../components/DistanceLabel.jsx";
 import ImageGallery from "../components/ImageGallery.jsx";
 import { api } from "../api.js";
+
+const CONDITION_COLORS = {
+  "new": "var(--cyan)",
+  "like new": "var(--green, #2ecc71)",
+  "used": "var(--muted)",
+  "fair": "orange",
+};
 
 function money(cents){
   const dollars = cents / 100;
@@ -32,13 +38,13 @@ export default function Listing({ me, notify }){
   const [busy, setBusy] = useState(true);
   const [observing, setObserving] = useState(false);
   const [imgIdx, setImgIdx] = useState(0);
-  const [editing, setEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState("");
-  const [editPrice, setEditPrice] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-  const [editBundle, setEditBundle] = useState("");
 
-  // New features state
+  // UI state
+  const [isWide, setIsWide] = useState(typeof window !== "undefined" && window.innerWidth >= 768);
+  const [descExpanded, setDescExpanded] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+
+  // Features
   const [similar, setSimilar] = useState([]);
   const [priceHist, setPriceHist] = useState([]);
   const [offers, setOffers] = useState([]);
@@ -59,6 +65,13 @@ export default function Listing({ me, notify }){
   const [meetupStatus, setMeetupStatus] = useState(null);
   const [showReport, setShowReport] = useState(false);
   const [reportReason, setReportReason] = useState("");
+
+  // Desktop resize detection
+  useEffect(() => {
+    const fn = () => setIsWide(window.innerWidth >= 768);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -86,15 +99,12 @@ export default function Listing({ me, notify }){
       if (r.existing_review) setExistingReview(r.existing_review);
     }).catch(() => {});
 
-    // Track view
     api.trackView(id).catch(() => {});
 
-    // Load boost info if owner so countdown shows
     if (me?.authed && me.user?.id === listing.user_id && listing.is_boosted) {
       loadBoostInfo();
     }
 
-    // Track recently viewed
     try {
       const key = "pm_recent";
       const recent = JSON.parse(localStorage.getItem(key) || "[]");
@@ -116,9 +126,7 @@ export default function Listing({ me, notify }){
     return () => clearInterval(t);
   }, [countdown > 0]);
 
-  // Auto-expire boost when boost_ends_at passes
-  // Uses both setTimeout and a visibility-change listener so it works
-  // even when the phone sleeps / tab goes to background
+  // Auto-expire boost
   useEffect(() => {
     if (!listing?.boost_ends_at || !listing.is_boosted) return;
     const endsAt = new Date(listing.boost_ends_at).getTime();
@@ -131,16 +139,10 @@ export default function Listing({ me, notify }){
       return false;
     };
 
-    // Already expired
     if (checkExpired()) return;
-
-    // Timer for when boost ends
     const t = setTimeout(checkExpired, endsAt - Date.now());
-
-    // Re-check when user comes back to the tab / wakes phone
     const onVisible = () => { if (document.visibilityState === "visible") checkExpired(); };
     document.addEventListener("visibilitychange", onVisible);
-
     return () => { clearTimeout(t); document.removeEventListener("visibilitychange", onVisible); };
   }, [listing?.boost_ends_at, listing?.is_boosted]);
 
@@ -171,27 +173,6 @@ export default function Listing({ me, notify }){
       await navigator.clipboard.writeText(url);
       notify("Link copied!");
     }
-  };
-
-  const startEditing = () => {
-    setEditTitle(listing.title);
-    setEditPrice(String((listing.price_cents / 100)));
-    setEditDesc(listing.description || "");
-    setEditBundle(listing.bundle_discount_pct ? String(listing.bundle_discount_pct) : "");
-    setEditing(true);
-  };
-
-  const saveEdit = async () => {
-    const price_cents = Math.round(parseFloat((editPrice || "0").replace(/[^0-9.]/g, "")) * 100);
-    if (!editTitle.trim()) { notify("Title is required"); return; }
-    if (!price_cents || price_cents <= 0) { notify("Enter a valid price"); return; }
-    const bundle = editBundle ? parseInt(editBundle) || null : null;
-    try {
-      await api.updateListing(listing.id, { title: editTitle, price_cents, description: editDesc, bundle_discount_pct: bundle });
-      setListing(prev => ({ ...prev, title: editTitle, price_cents, description: editDesc, bundle_discount_pct: bundle }));
-      setEditing(false);
-      notify("Listing updated.");
-    } catch(err) { notify(err.message); }
   };
 
   const submitOffer = async () => {
@@ -251,7 +232,6 @@ export default function Listing({ me, notify }){
           if (!s.free_boost_available) setCountdown(s.countdown_seconds || 0);
         }).catch(() => {});
       } else {
-        // Paid boost → Stripe Checkout
         const res = await api.boostCheckout({ listing_id: id, hours });
         if (res.url) window.location.href = res.url;
       }
@@ -263,744 +243,873 @@ export default function Listing({ me, notify }){
 
   const images = listing.images || [];
   const isOwner = me?.authed && me.user?.id === listing.user_id;
+  const showStickyBar = !isOwner && !listing.is_sold && !me?.user?.is_test_account;
+  const condColor = CONDITION_COLORS[listing.condition?.toLowerCase()] || "var(--muted)";
 
-  return (
-    <>
-      {/* ── Hero image gallery with back button ── */}
-      <div className="listing-hero" style={{ position:"relative", margin:"-18px -16px 0", overflow:"hidden" }}>
-        <button onClick={goBack} style={{
-          position:"absolute", top:16, left:16, zIndex:2,
-          background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
-          width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
-          cursor:"pointer",
+  // Key details badge helper
+  const Badge = ({ children, color, bg }) => (
+    <span style={{
+      padding:"3px 8px", borderRadius:6, fontSize:11, fontWeight:700,
+      color: color || "var(--muted)",
+      background: bg || "var(--panel2)",
+      border: `1px solid ${color ? color + "33" : "var(--border)"}`,
+    }}>
+      {children}
+    </span>
+  );
+
+  // Seller card (reusable for mobile inline + desktop right col)
+  const SellerCard = ({ compact }) => (
+    <Link to={`/seller/${listing.user_id}`} style={{ textDecoration:"none", color:"inherit", display:"block" }}>
+      <div style={{
+        display:"flex", alignItems:"center", gap:10,
+        padding: compact ? "10px 12px" : "12px 14px",
+        borderRadius:12, background:"var(--panel2)", border:"1px solid var(--border)",
+      }}>
+        <div style={{
+          width: compact ? 38 : 44, height: compact ? 38 : 44,
+          borderRadius:10, overflow:"hidden",
+          background:"var(--panel)", display:"flex", alignItems:"center", justifyContent:"center",
+          flexShrink:0,
         }}>
-          <IconBack size={20} color="#fff" />
-        </button>
+          {listing.seller_avatar ? (
+            <img src={listing.seller_avatar.startsWith("/") ? `${api.base}${listing.seller_avatar}` : listing.seller_avatar} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+          ) : (
+            <IconPerson size={compact ? 18 : 22} color="var(--muted)" />
+          )}
+        </div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6, flexWrap:"wrap" }}>
+            <span style={{ fontSize:14, fontWeight:700 }}>{listing.seller_name}</span>
+            {listing.is_verified_seller && <span title="Verified Seller" style={{ fontSize:13 }}>{"\u2705"}</span>}
+            {listing.is_pro_seller && (
+              <span style={{
+                background:"linear-gradient(135deg, rgba(62,224,255,.25), rgba(164,122,255,.22))",
+                border:"1px solid rgba(62,224,255,.40)",
+                padding:"2px 6px", borderRadius:5, fontSize:9, fontWeight:800, color:"var(--cyan)",
+              }}>PRO</span>
+            )}
+          </div>
+          {listing.bundle_discount_pct > 0 && (
+            <div style={{ fontSize:11, color:"var(--green, #2ecc71)", fontWeight:600, marginTop:1 }}>
+              {listing.bundle_discount_pct}% bundle discount
+            </div>
+          )}
+        </div>
+        <IconChevronRight size={14} color="var(--muted)" />
+      </div>
+    </Link>
+  );
 
-        {/* Share button */}
-        <button onClick={shareListing} style={{
-          position:"absolute", top:16, right:16, zIndex:2,
-          background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
-          width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
-          cursor:"pointer",
-        }}>
-          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-            <path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/>
-          </svg>
-        </button>
-
-        {images.length > 0 ? (
-          <>
-            <img src={`${api.base}${images[imgIdx]}`} alt={listing.title}
-                 onClick={() => setGalleryOpen(true)}
-                 onError={e => { e.target.onerror=null; e.target.style.objectFit="contain"; e.target.style.background="var(--panel2)"; e.target.src=""; }}
-                 style={{ width:"100%", height:240, objectFit:"cover", display:"block", cursor:"pointer" }} />
-
-            {/* Nav arrows */}
-            {images.length > 1 && (
+  // Review section (reusable)
+  const ReviewSection = () => {
+    if (!listing.is_sold || isOwner || (!canReview && !existingReview)) return null;
+    return (
+      <Card style={{ marginBottom:12 }}>
+        {existingReview ? (
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>Your Feedback</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <span style={{ fontSize:22 }}>{existingReview.is_positive ? "\ud83d\udc4d" : "\ud83d\udc4e"}</span>
+              <span style={{ fontSize:13, fontWeight:600, color: existingReview.is_positive ? "var(--green, #2ecc71)" : "var(--red, #e74c3c)" }}>
+                {existingReview.is_positive ? "Positive" : "Negative"}
+              </span>
+            </div>
+            {existingReview.comment && (
+              <div className="muted" style={{ fontSize:12, marginTop:6 }}>"{existingReview.comment}"</div>
+            )}
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>Leave Feedback for Seller</div>
+            {!showReview ? (
+              <button onClick={() => setShowReview(true)} style={{
+                width:"100%", padding:"10px 0", borderRadius:10, fontSize:13, fontWeight:700,
+                cursor:"pointer", fontFamily:"inherit",
+                background:"linear-gradient(135deg, rgba(62,224,255,.12), rgba(164,122,255,.12))",
+                border:"1px solid var(--border)", color:"var(--cyan)",
+              }}>
+                Rate this seller
+              </button>
+            ) : (
               <>
-                {imgIdx > 0 && (
-                  <button onClick={() => setImgIdx(i => i-1)} style={{
-                    position:"absolute", top:"50%", left:8, transform:"translateY(-50%)",
-                    background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
-                    width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center",
-                    cursor:"pointer",
-                  }}>
-                    <IconBack size={16} color="#fff" />
-                  </button>
-                )}
-                {imgIdx < images.length - 1 && (
-                  <button onClick={() => setImgIdx(i => i+1)} style={{
-                    position:"absolute", top:"50%", right:8, transform:"translateY(-50%)",
-                    background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
-                    width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center",
-                    cursor:"pointer",
-                  }}>
-                    <IconChevronRight size={16} color="#fff" />
-                  </button>
-                )}
-
-                {/* Dot indicators */}
-                <div style={{
-                  position:"absolute", bottom:10, left:"50%", transform:"translateX(-50%)",
-                  display:"flex", gap:6,
-                }}>
-                  {images.map((_, i) => (
-                    <div key={i} onClick={() => setImgIdx(i)} style={{
-                      width:7, height:7, borderRadius:"50%", cursor:"pointer",
-                      background: i === imgIdx ? "#fff" : "rgba(255,255,255,.45)",
-                    }} />
-                  ))}
+                <textarea
+                  value={reviewComment}
+                  onChange={e => setReviewComment(e.target.value)}
+                  placeholder="Optional comment..."
+                  rows={2}
+                  style={{
+                    width:"100%", padding:"10px 12px", borderRadius:10, marginBottom:10,
+                    background:"var(--panel2)", border:"1px solid var(--border)",
+                    color:"var(--text)", fontSize:13, fontFamily:"inherit",
+                    resize:"vertical", boxSizing:"border-box",
+                  }}
+                />
+                <div style={{ display:"flex", gap:8 }}>
+                  <button onClick={() => submitReview(true)} style={{
+                    flex:1, padding:"12px 0", borderRadius:10, fontSize:14, fontWeight:800,
+                    cursor:"pointer", fontFamily:"inherit",
+                    background:"rgba(46,204,113,.15)", border:"1.5px solid var(--green, #2ecc71)",
+                    color:"var(--green, #2ecc71)",
+                  }}>👍 Positive</button>
+                  <button onClick={() => submitReview(false)} style={{
+                    flex:1, padding:"12px 0", borderRadius:10, fontSize:14, fontWeight:800,
+                    cursor:"pointer", fontFamily:"inherit",
+                    background:"rgba(231,76,60,.15)", border:"1.5px solid var(--red, #e74c3c)",
+                    color:"var(--red, #e74c3c)",
+                  }}>👎 Negative</button>
                 </div>
               </>
             )}
-          </>
-        ) : (
-          <div style={{
-            width:"100%", height:280, background:"var(--panel2)",
-            display:"flex", alignItems:"center", justifyContent:"center",
-          }}>
-            <IconCamera size={48} color="var(--muted)" />
           </div>
         )}
-      </div>
+      </Card>
+    );
+  };
 
-      {/* ── Edit mode ── */}
-      {editing ? (
-        <div style={{ marginTop:16 }} className="col">
-          <Input label="Title" value={editTitle} onChange={e => setEditTitle(e.target.value)} />
-          <Input label="Price (USD)" value={editPrice} onChange={e => setEditPrice(e.target.value)} />
-          <div className="col" style={{ gap:8 }}>
-            <div className="muted" style={{ fontSize:13 }}>Description</div>
-            <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} rows={4} style={{
-              width:"100%", padding:"12px", borderRadius:14,
-              border:"1px solid var(--border)", background:"var(--input-bg, #1a1f2b)",
-              color:"var(--text)", outline:"none", resize:"vertical",
-            }} />
+  // Expiry warning (reusable)
+  const ExpiryBanner = () => {
+    if (!isOwner) return null;
+    const base = listing.renewed_at || listing.created_at;
+    const daysOld = base ? Math.floor((Date.now() - new Date(base).getTime()) / 86400000) : 0;
+    const daysLeft = 30 - daysOld;
+    if (daysLeft > 7) return null;
+    return (
+      <div style={{
+        marginBottom:12, padding:"10px 14px", borderRadius:12,
+        background: daysLeft <= 0 ? "rgba(231,76,60,.15)" : "rgba(255,165,0,.12)",
+        border: `1px solid ${daysLeft <= 0 ? "var(--red, #e74c3c)" : "orange"}`,
+        display:"flex", justifyContent:"space-between", alignItems:"center",
+      }}>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color: daysLeft <= 0 ? "var(--red, #e74c3c)" : "orange" }}>
+            {daysLeft <= 0 ? "Listing expired" : `Expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}
           </div>
-          <Input label="Bundle Discount % (optional)" placeholder="e.g. 10" value={editBundle} onChange={e => setEditBundle(e.target.value)} />
-          <div style={{ display:"flex", gap:10 }}>
-            <Button onClick={saveEdit} style={{ flex:1 }}>Save</Button>
-            <Button variant="ghost" onClick={() => setEditing(false)} style={{ flex:1 }}>Cancel</Button>
+          <div className="muted" style={{ fontSize:11 }}>Renew to keep it visible</div>
+        </div>
+        <button onClick={async () => {
+          try {
+            const res = await api.renewListing(listing.id);
+            setListing(prev => ({ ...prev, renewed_at: res.renewed_at }));
+            notify("Listing renewed for 30 days!");
+          } catch(err) { notify(err.message); }
+        }} style={{
+          padding:"8px 16px", borderRadius:10, fontSize:12, fontWeight:700,
+          cursor:"pointer", fontFamily:"inherit",
+          background:"var(--cyan)", border:"none", color:"#000",
+        }}>Renew</button>
+      </div>
+    );
+  };
+
+  // Action buttons (reusable)
+  const ActionButtons = () => (
+    <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+      {isOwner ? (
+        <>
+          <Link to={`/listing/${id}/edit`} style={{ textDecoration:"none" }}>
+            <Button variant="ghost" style={{ width:"100%" }}>Edit Listing</Button>
+          </Link>
+
+          {/* Boost */}
+          {!listing.is_boosted ? (
+            <Button onClick={() => { loadBoostInfo(); setShowBoost(!showBoost); }}>
+              Boost Listing
+            </Button>
+          ) : (
+            <div style={{
+              padding:"10px 14px", borderRadius:12, textAlign:"center",
+              background:"linear-gradient(135deg, rgba(62,224,255,.15), rgba(164,122,255,.15))",
+              border:"1px solid rgba(62,224,255,.30)",
+            }}>
+              <div style={{ fontSize:13, fontWeight:700, color:"var(--cyan)" }}>Currently Boosted ⚡</div>
+              {countdown > 0 && (
+                <div style={{ fontSize:11, fontWeight:600, color:"var(--muted)", marginTop:4, fontVariantNumeric:"tabular-nums" }}>
+                  Next free boost in {Math.floor(countdown/3600).toString().padStart(2,"0")}:{Math.floor((countdown%3600)/60).toString().padStart(2,"0")}:{(countdown%60).toString().padStart(2,"0")}
+                </div>
+              )}
+            </div>
+          )}
+
+          {showBoost && boostInfo && (
+            <Card>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>Boost this listing</div>
+              {boostInfo.is_pro && (
+                <div style={{ marginBottom:12 }}>
+                  {boostInfo.free_boost_available ? (
+                    <button onClick={() => activateBoost(24, true)} style={{
+                      width:"100%", padding:"14px 16px", borderRadius:12, cursor:"pointer",
+                      fontFamily:"inherit", fontSize:14, fontWeight:800,
+                      background:"linear-gradient(135deg, rgba(62,224,255,.18), rgba(164,122,255,.18))",
+                      border:"1.5px solid rgba(62,224,255,.50)", color:"var(--cyan)",
+                    }}>
+                      Free Daily 24h Boost (PRO)
+                    </button>
+                  ) : (
+                    <div style={{
+                      width:"100%", padding:"14px 16px", borderRadius:12, textAlign:"center",
+                      background:"var(--panel2)", border:"1px solid var(--border)", opacity:0.6,
+                    }}>
+                      <div style={{ fontSize:13, fontWeight:700, color:"var(--muted)" }}>Free boost used today</div>
+                      <div style={{ fontSize:12, fontWeight:600, color:"var(--cyan)", marginTop:4, fontVariantNumeric:"tabular-nums" }}>
+                        Resets in {Math.floor(countdown/3600).toString().padStart(2,"0")}:{Math.floor((countdown%3600)/60).toString().padStart(2,"0")}:{(countdown%60).toString().padStart(2,"0")}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {boostDurations.length > 0 && (
+                <>
+                  {boostInfo.is_pro && <div className="muted" style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>Or purchase a longer boost</div>}
+                  <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                    {boostDurations.map(d => (
+                      <button key={d.hours} onClick={() => activateBoost(d.hours, false)} style={{
+                        display:"flex", justifyContent:"space-between", alignItems:"center",
+                        padding:"10px 12px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
+                        background:"var(--panel2)", border:"1px solid var(--border)", color:"var(--text)",
+                      }}>
+                        <span style={{ fontWeight:600, fontSize:13 }}>{d.label}</span>
+                        <span style={{ fontWeight:800, fontSize:13, color:"var(--cyan)" }}>${d.price_usd}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <button onClick={() => setShowRules(!showRules)} style={{
+                width:"100%", marginTop:10, padding:"8px 0", borderRadius:8,
+                background:"none", border:"none", cursor:"pointer",
+                fontSize:12, fontWeight:600, color:"var(--muted)", fontFamily:"inherit", textAlign:"center",
+              }}>
+                {showRules ? "Hide boost rules" : "View boost rules"}
+              </button>
+              {showRules && boostRules.length > 0 && (
+                <div style={{ marginTop:4, padding:"10px 12px", borderRadius:10, background:"var(--panel2)", border:"1px solid var(--border)" }}>
+                  {boostRules.map((r, i) => (
+                    <div key={i} style={{ fontSize:11, lineHeight:1.6, color:"var(--muted)" }}>{"\u2022"} {r}</div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )}
+
+          <Button onClick={async () => {
+            try {
+              await api.updateListing(listing.id, { is_sold: !listing.is_sold });
+              setListing(prev => ({ ...prev, is_sold: !prev.is_sold }));
+              notify(listing.is_sold ? "Marked as available." : "Marked as sold.");
+            } catch(err) { notify(err.message); }
+          }}>
+            {listing.is_sold ? "Mark as Available" : "Mark as Sold"}
+          </Button>
+
+          {offers.length > 0 && (
+            <Card>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Offers ({offers.length})</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                {offers.map(o => (
+                  <OfferRow key={o.id} offer={o} isOwner={true} onRespond={respondToOffer} />
+                ))}
+              </div>
+            </Card>
+          )}
+
+          <button
+            onClick={async () => {
+              if (!window.confirm("Delete this listing? This can't be undone.")) return;
+              try {
+                await api.deleteListing(listing.id);
+                try {
+                  const recent = JSON.parse(localStorage.getItem("pm_recent") || "[]");
+                  localStorage.setItem("pm_recent", JSON.stringify(recent.filter(r => r.id !== listing.id)));
+                } catch {}
+                notify("Listing deleted.");
+                nav("/");
+              } catch(err) { notify(err.message); }
+            }}
+            style={{
+              padding:"10px 16px", borderRadius:14, fontSize:13, fontWeight:600,
+              background:"none", border:"1px solid var(--border)",
+              color:"var(--muted)", cursor:"pointer", fontFamily:"inherit",
+            }}
+          >
+            Delete Listing
+          </button>
+        </>
+      ) : me?.user?.is_test_account ? (
+        <div style={{
+          padding:"14px", borderRadius:12, textAlign:"center",
+          background:"rgba(62,224,255,.06)", border:"1px solid rgba(62,224,255,.20)",
+        }}>
+          <div className="muted" style={{ fontSize:12, lineHeight:1.6 }}>
+            Messaging, offers, and purchasing are disabled on this review account.
           </div>
         </div>
       ) : (
         <>
-          {/* ── Title + Price ── */}
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginTop:16 }}>
-            <div style={{ fontWeight:800, fontSize:20 }}>{listing.title}</div>
-            <div style={{ fontWeight:800, fontSize:20, color:"var(--cyan)", flexShrink:0 }}>{money(listing.price_cents)}</div>
-          </div>
+          {!listing.is_sold && (
+            <>
+              <Button icon={<IconEnvelope size={18} />} onClick={messageSeller}>
+                Message Seller
+              </Button>
+              <Button variant="ghost" icon={<IconEye size={18} />} onClick={toggleObs}>
+                {observing ? "Saved \u2713" : "Save Listing"}
+              </Button>
+              <Button variant="ghost" onClick={() => setShowOffer(!showOffer)}>
+                Make an Offer
+              </Button>
+              {showOffer && (
+                <Card>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <span style={{ fontSize:16, fontWeight:800 }}>$</span>
+                    <input
+                      value={offerAmt}
+                      onChange={e => setOfferAmt(e.target.value)}
+                      placeholder="Your offer"
+                      type="number"
+                      style={{
+                        flex:1, padding:"10px 12px", borderRadius:10,
+                        background:"var(--panel2)", border:"1px solid var(--border)",
+                        color:"var(--text)", fontSize:14, fontFamily:"inherit",
+                      }}
+                    />
+                    <Button onClick={submitOffer} style={{ whiteSpace:"nowrap" }}>Send</Button>
+                  </div>
+                </Card>
+              )}
+            </>
+          )}
+          {listing.is_sold && (
+            <Button icon={<IconEye size={18} />} onClick={toggleObs}>
+              {observing ? "Saved \u2713" : "Save Listing"}
+            </Button>
+          )}
 
-          {/* ── Seller link ── */}
-          <Link to={`/seller/${listing.user_id}`} style={{ textDecoration:"none", color:"inherit" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:8 }}>
-              <div style={{
-                width:28, height:28, borderRadius:8, overflow:"hidden",
-                background:"var(--panel2)", display:"flex", alignItems:"center", justifyContent:"center",
-                flexShrink:0,
-              }}>
-                {listing.seller_avatar ? (
-                  <img src={listing.seller_avatar.startsWith("/") ? `${api.base}${listing.seller_avatar}` : listing.seller_avatar} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-                ) : (
-                  <IconPerson size={14} color="var(--muted)" />
-                )}
+          {/* Report */}
+          <button onClick={() => setShowReport(!showReport)} style={{
+            padding:"12px 14px", borderRadius:14, fontSize:13, fontWeight:700,
+            background:"none", border:"1px solid var(--border)",
+            color:"var(--muted)", cursor:"pointer", fontFamily:"inherit",
+            width:"100%", textAlign:"center",
+          }}>
+            Report Listing
+          </button>
+          {showReport && (
+            <Card>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Why are you reporting this?</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {["Prohibited item", "Scam / fraud", "Misleading description", "Offensive content", "Other"].map(r => (
+                  <button key={r} onClick={() => setReportReason(r)} style={{
+                    padding:"10px 12px", borderRadius:10, fontSize:13, fontWeight:600,
+                    cursor:"pointer", fontFamily:"inherit", textAlign:"left",
+                    background: reportReason === r ? "rgba(62,224,255,.12)" : "var(--panel2)",
+                    border: reportReason === r ? "1px solid var(--cyan)" : "1px solid var(--border)",
+                    color: reportReason === r ? "var(--cyan)" : "var(--text)",
+                  }}>
+                    {r}
+                  </button>
+                ))}
               </div>
-              <span style={{ fontSize:13, fontWeight:600 }}>{listing.seller_name}</span>
-              {listing.is_verified_seller && (
-                <span title="Verified Seller" style={{ fontSize:14, lineHeight:1 }}>{"\u2705"}</span>
-              )}
-              {listing.is_pro_seller && (
-                <span style={{
-                  background:"linear-gradient(135deg, rgba(62,224,255,.25), rgba(164,122,255,.22))",
-                  border:"1px solid rgba(62,224,255,.40)",
-                  padding:"2px 6px", borderRadius:5,
-                  fontSize:9, fontWeight:800, color:"var(--cyan)",
-                }}>PRO</span>
-              )}
-              <IconChevronRight size={14} color="var(--muted)" />
-            </div>
-          </Link>
-
-          {/* ── Condition + Bundle ── */}
-          <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:8 }}>
-            <span className="muted" style={{ fontSize:14 }}>{listing.condition}</span>
-            {listing.bundle_discount_pct > 0 && (
-              <span style={{
-                padding:"2px 8px", borderRadius:6, fontSize:10, fontWeight:800,
-                background:"rgba(46,204,113,.15)", border:"1px solid var(--green, #2ecc71)",
-                color:"var(--green, #2ecc71)",
+              <button onClick={async () => {
+                if (!reportReason) { notify("Select a reason"); return; }
+                try {
+                  await api.reportUser(listing.user_id, { listing_id: listing.id, reason: reportReason });
+                  setShowReport(false);
+                  setReportReason("");
+                  notify("Report submitted. We'll review it shortly.");
+                } catch(err) { notify(err.message); }
+              }} style={{
+                marginTop:10, width:"100%", padding:"12px 0", borderRadius:12,
+                fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
+                background:"rgba(231,76,60,.12)", border:"1px solid var(--red, #e74c3c)",
+                color:"var(--red, #e74c3c)",
               }}>
-                {listing.bundle_discount_pct}% off bundles
-              </span>
-            )}
-          </div>
+                Submit Report
+              </button>
+            </Card>
+          )}
 
-          {/* ── Description ── */}
-          {listing.description && (
-            <div style={{ marginTop:10, lineHeight:1.5, fontSize:14 }}>{listing.description}</div>
+          {/* My offers */}
+          {offers.filter(o => o.buyer_id === me?.user?.id).length > 0 && (
+            <Card>
+              <div style={{ fontSize:12, fontWeight:700, marginBottom:6 }}>Your Offers</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                {offers.filter(o => o.buyer_id === me?.user?.id).map(o => (
+                  <OfferRow key={o.id} offer={o} isOwner={false} />
+                ))}
+              </div>
+            </Card>
           )}
         </>
       )}
+    </div>
+  );
 
-      {/* ── Price History ── */}
-      {priceHist.length > 0 && (
-        <div style={{ marginTop:12 }}>
-          <div className="muted" style={{ fontSize:12, fontWeight:700, marginBottom:6 }}>Price History</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
-            {priceHist.map((h, i) => {
-              const dropped = h.new_cents < h.old_cents;
-              return (
-                <div key={i} style={{ fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
-                  <span style={{ color: dropped ? "var(--green, #2ecc71)" : "var(--red, #e74c3c)", fontWeight:700 }}>
-                    {dropped ? "\u2193" : "\u2191"}
-                  </span>
-                  <span className="muted">{money(h.old_cents)}</span>
-                  <span className="muted">{"\u2192"}</span>
-                  <span style={{ fontWeight:700 }}>{money(h.new_cents)}</span>
-                  <span className="muted" style={{ fontSize:10 }}>{timeAgo(h.changed_at)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+  return (
+    <>
+      {/* ── 2-col desktop wrapper ── */}
+      <div style={{
+        display: isWide ? "flex" : "block",
+        gap: isWide ? 28 : 0,
+        alignItems: "flex-start",
+        paddingBottom: showStickyBar && !isWide ? 80 : 24,
+      }}>
 
-      {/* ── Area + Distance ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:12 }}>
-        <IconPin size={16} color="var(--cyan)" />
-        <span className="muted" style={{ fontSize:14 }}>
-          Area: {listing.zip || listing.city || "Unknown"} (<DistanceLabel listing={listing} />)
-        </span>
-      </div>
+        {/* ════════════════ LEFT COLUMN ════════════════ */}
+        <div style={{ flex: isWide ? "1 1 55%" : undefined, minWidth: 0 }}>
 
-      {/* ── Social proof: views + saves ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:14, marginTop:8, flexWrap:"wrap" }}>
-        {listing.view_count > 0 && (
-          <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"var(--muted)" }}>
-            <IconEye size={13} /> {listing.view_count} view{listing.view_count !== 1 ? "s" : ""}
-          </div>
-        )}
-        {listing.observing_count > 0 && (
-          <div style={{
-            display:"flex", alignItems:"center", gap:5, fontSize:12, fontWeight:700,
-            color:"var(--cyan)", padding:"3px 10px", borderRadius:8,
-            background:"rgba(62,224,255,.08)", border:"1px solid rgba(62,224,255,.18)",
-          }}>
-            {"\ud83d\udc41\ufe0f"} {listing.observing_count} saved
-          </div>
-        )}
-      </div>
+          {/* Hero image gallery */}
+          <div style={isWide
+            ? { position:"relative", borderRadius:16, overflow:"hidden", marginBottom:12 }
+            : { position:"relative", margin:"-18px -16px 0", overflow:"hidden" }
+          }>
+            <button onClick={goBack} style={{
+              position:"absolute", top:16, left:16, zIndex:2,
+              background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
+              width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
+              cursor:"pointer",
+            }}>
+              <IconBack size={20} color="#fff" />
+            </button>
 
-      {/* ── Sold banner ── */}
-      {listing.is_sold && (
-        <div style={{
-          marginTop:14, padding:"10px 14px", borderRadius:12,
-          background:"var(--red, #e74c3c)", color:"#fff",
-          fontWeight:800, fontSize:14, textAlign:"center",
-        }}>
-          This item has been sold
-        </div>
-      )}
+            <button onClick={shareListing} style={{
+              position:"absolute", top:16, right:16, zIndex:2,
+              background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
+              width:36, height:36, display:"flex", alignItems:"center", justifyContent:"center",
+              cursor:"pointer",
+            }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                <path d="M8.59 13.51l6.83 3.98"/><path d="M15.41 6.51l-6.82 3.98"/>
+              </svg>
+            </button>
 
-      {/* ── Review / Feedback ── */}
-      {listing.is_sold && !isOwner && (canReview || existingReview) && (
-        <Card style={{ marginTop:14 }}>
-          {existingReview ? (
-            <div>
-              <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>Your Feedback</div>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span style={{ fontSize:22 }}>{existingReview.is_positive ? "\ud83d\udc4d" : "\ud83d\udc4e"}</span>
-                <span style={{ fontSize:13, fontWeight:600, color: existingReview.is_positive ? "var(--green, #2ecc71)" : "var(--red, #e74c3c)" }}>
-                  {existingReview.is_positive ? "Positive" : "Negative"}
-                </span>
+            {images.length > 0 ? (
+              <>
+                <img
+                  src={`${api.base}${images[imgIdx]}`}
+                  alt={listing.title}
+                  onClick={() => setGalleryOpen(true)}
+                  onError={e => { e.target.onerror=null; e.target.style.objectFit="contain"; e.target.style.background="var(--panel2)"; e.target.src=""; }}
+                  style={{ width:"100%", height: isWide ? 380 : 260, objectFit:"cover", display:"block", cursor:"pointer" }}
+                />
+
+                {/* Image counter */}
+                {images.length > 1 && (
+                  <div style={{
+                    position:"absolute", bottom:12, right:12, zIndex:2,
+                    background:"rgba(0,0,0,.6)", borderRadius:8,
+                    padding:"3px 9px", fontSize:11, fontWeight:700, color:"#fff",
+                  }}>
+                    {imgIdx + 1} / {images.length}
+                  </div>
+                )}
+
+                {/* Nav arrows */}
+                {images.length > 1 && (
+                  <>
+                    {imgIdx > 0 && (
+                      <button onClick={() => setImgIdx(i => i-1)} style={{
+                        position:"absolute", top:"50%", left:8, transform:"translateY(-50%)",
+                        background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
+                        width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center",
+                        cursor:"pointer",
+                      }}>
+                        <IconBack size={16} color="#fff" />
+                      </button>
+                    )}
+                    {imgIdx < images.length - 1 && (
+                      <button onClick={() => setImgIdx(i => i+1)} style={{
+                        position:"absolute", top:"50%", right:8, transform:"translateY(-50%)",
+                        background:"rgba(0,0,0,.45)", border:"none", borderRadius:"50%",
+                        width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center",
+                        cursor:"pointer",
+                      }}>
+                        <IconChevronRight size={16} color="#fff" />
+                      </button>
+                    )}
+
+                    {/* Dot indicators */}
+                    <div style={{
+                      position:"absolute", bottom:12, left:"50%", transform:"translateX(-50%)",
+                      display:"flex", gap:6,
+                    }}>
+                      {images.map((_, i) => (
+                        <div key={i} onClick={() => setImgIdx(i)} style={{
+                          width:7, height:7, borderRadius:"50%", cursor:"pointer",
+                          background: i === imgIdx ? "#fff" : "rgba(255,255,255,.45)",
+                        }} />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              <div style={{
+                width:"100%", height: isWide ? 380 : 280, background:"var(--panel2)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}>
+                <IconCamera size={48} color="var(--muted)" />
               </div>
-              {existingReview.comment && (
-                <div className="muted" style={{ fontSize:12, marginTop:6 }}>"{existingReview.comment}"</div>
+            )}
+          </div>
+
+          {/* Mobile-only: title + price + badges + seller card */}
+          {!isWide && (
+            <div style={{ marginTop:16 }}>
+              {/* Title + Price */}
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:8 }}>
+                <div style={{ fontWeight:800, fontSize:20, lineHeight:1.3 }}>{listing.title}</div>
+                <div style={{ fontWeight:800, fontSize:22, color:"var(--cyan)", flexShrink:0 }}>
+                  {money(listing.price_cents)}
+                </div>
+              </div>
+
+              {/* Key details badges */}
+              <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
+                <Badge color={condColor}>{listing.condition}</Badge>
+                {listing.category && (
+                  <Badge style={{ textTransform:"capitalize" }}>{listing.category}</Badge>
+                )}
+                <Badge>{timeAgo(listing.created_at)}</Badge>
+                {listing.is_boosted && (
+                  <Badge color="var(--cyan)" bg="rgba(62,224,255,.08)">⚡ Boosted</Badge>
+                )}
+                {listing.bundle_discount_pct > 0 && (
+                  <Badge color="var(--green, #2ecc71)" bg="rgba(46,204,113,.10)">
+                    {listing.bundle_discount_pct}% off bundles
+                  </Badge>
+                )}
+              </div>
+
+              {/* Seller card */}
+              <div style={{ marginTop:10 }}>
+                <SellerCard compact />
+              </div>
+            </div>
+          )}
+
+          {/* Description with Read More */}
+          {listing.description && (
+            <div style={{ marginTop:14 }}>
+              <div className="muted" style={{ fontSize:12, fontWeight:700, marginBottom:4 }}>Description</div>
+              <div style={{
+                fontSize:14, lineHeight:1.6,
+                overflow: descExpanded ? "visible" : "hidden",
+                display: descExpanded ? "block" : "-webkit-box",
+                WebkitLineClamp: descExpanded ? undefined : 4,
+                WebkitBoxOrient: descExpanded ? undefined : "vertical",
+              }}>
+                {listing.description}
+              </div>
+              {listing.description.length > 180 && (
+                <button onClick={() => setDescExpanded(p => !p)} style={{
+                  marginTop:4, background:"none", border:"none", cursor:"pointer",
+                  fontSize:12, fontWeight:700, color:"var(--cyan)", padding:0,
+                  fontFamily:"inherit",
+                }}>
+                  {descExpanded ? "Show less" : "Read more"}
+                </button>
               )}
             </div>
-          ) : (
-            <div>
-              <div style={{ fontSize:13, fontWeight:700, marginBottom:6 }}>Leave Feedback for Seller</div>
-              {!showReview ? (
-                <button onClick={() => setShowReview(true)} style={{
+          )}
+
+          {/* Price History */}
+          {priceHist.length > 0 && (
+            <div style={{ marginTop:12 }}>
+              <div className="muted" style={{ fontSize:12, fontWeight:700, marginBottom:6 }}>Price History</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+                {priceHist.map((h, i) => {
+                  const dropped = h.new_cents < h.old_cents;
+                  return (
+                    <div key={i} style={{ fontSize:12, display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ color: dropped ? "var(--green, #2ecc71)" : "var(--red, #e74c3c)", fontWeight:700 }}>
+                        {dropped ? "\u2193" : "\u2191"}
+                      </span>
+                      <span className="muted">{money(h.old_cents)}</span>
+                      <span className="muted">{"\u2192"}</span>
+                      <span style={{ fontWeight:700 }}>{money(h.new_cents)}</span>
+                      <span className="muted" style={{ fontSize:10 }}>{timeAgo(h.changed_at)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Area + Distance + Social proof */}
+          <div style={{ display:"flex", alignItems:"center", gap:8, marginTop:12 }}>
+            <IconPin size={16} color="var(--cyan)" />
+            <span className="muted" style={{ fontSize:14 }}>
+              Area: {listing.zip || listing.city || "Unknown"} (<DistanceLabel listing={listing} />)
+            </span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:14, marginTop:8, flexWrap:"wrap" }}>
+            {listing.view_count > 0 && (
+              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"var(--muted)" }}>
+                <IconEye size={13} /> {listing.view_count} view{listing.view_count !== 1 ? "s" : ""}
+              </div>
+            )}
+            {listing.observing_count > 0 && (
+              <div style={{
+                display:"flex", alignItems:"center", gap:5, fontSize:12, fontWeight:700,
+                color:"var(--cyan)", padding:"3px 10px", borderRadius:8,
+                background:"rgba(62,224,255,.08)", border:"1px solid rgba(62,224,255,.18)",
+              }}>
+                {"\ud83d\udc41\ufe0f"} {listing.observing_count} saved
+              </div>
+            )}
+          </div>
+
+          {/* Sold banner */}
+          {listing.is_sold && (
+            <div style={{
+              marginTop:14, padding:"10px 14px", borderRadius:12,
+              background:"var(--red, #e74c3c)", color:"#fff",
+              fontWeight:800, fontSize:14, textAlign:"center",
+            }}>
+              This item has been sold
+            </div>
+          )}
+
+          {/* Safe meetup */}
+          <div style={{ marginTop:18 }}>
+            <div className="h2" style={{ marginBottom:8 }}>Safe Meetup Spot</div>
+            {listing.safe_meet ? (
+              <Card noPadding style={{ overflow:"hidden" }}>
+                <ListingMap
+                  lat={listing.safe_meet.lat}
+                  lng={listing.safe_meet.lng}
+                  title={listing.safe_meet.place_name}
+                  height={180}
+                />
+                <div style={{ padding:"10px 12px", display:"flex", alignItems:"center", gap:8 }}>
+                  <IconPin size={15} color="var(--violet, #a47aff)" />
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:13 }}>{listing.safe_meet.place_name}</div>
+                    <div className="muted" style={{ fontSize:11 }}>{listing.safe_meet.address}</div>
+                  </div>
+                </div>
+              </Card>
+            ) : listing.lat && listing.lng ? (
+              <>
+                <ListingMap lat={listing.lat} lng={listing.lng} title={listing.title} height={180} />
+                <div className="muted" style={{ fontSize:13, marginTop:8 }}>
+                  Listing location shown. Seller hasn't set a safe meetup spot yet.
+                </div>
+              </>
+            ) : (
+              <div className="muted" style={{ fontSize:13 }}>
+                Seller hasn't set a safe meetup spot yet.
+              </div>
+            )}
+          </div>
+
+          {/* Similar Listings */}
+          {similar.length > 0 && (
+            <div style={{ marginTop:20 }}>
+              <div className="h2" style={{ marginBottom:10 }}>Similar Items</div>
+              <div className="grid">
+                {similar.map(s => (
+                  <Link key={s.id} to={`/listing/${s.id}`}>
+                    <Card noPadding>
+                      <div style={{ position:"relative" }}>
+                        {s.image ? (
+                          <img src={`${api.base}${s.image}`} alt={s.title} className="card-image" onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
+                        ) : (
+                          <div className="card-image-placeholder"><IconCamera size={28} /></div>
+                        )}
+                      </div>
+                      <div style={{ padding:"8px 10px" }}>
+                        <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                          {s.title}
+                        </div>
+                        <div style={{ marginTop:2, fontWeight:800, fontSize:12, color:"var(--cyan)" }}>{money(s.price_cents)}</div>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Meetup QR Confirmation */}
+          {listing.is_sold && (isOwner || me?.user?.id === listing.buyer_id) && (
+            <Card style={{ marginTop:16 }}>
+              <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Meetup Confirmation</div>
+              {!meetupToken ? (
+                <button onClick={async () => {
+                  try {
+                    const res = await api.createMeetupToken(listing.id);
+                    setMeetupToken(res.token);
+                    setMeetupStatus({ buyer: res.buyer_confirmed, seller: res.seller_confirmed });
+                  } catch(err) { notify(err.message); }
+                }} style={{
                   width:"100%", padding:"10px 0", borderRadius:10, fontSize:13, fontWeight:700,
                   cursor:"pointer", fontFamily:"inherit",
                   background:"linear-gradient(135deg, rgba(62,224,255,.12), rgba(164,122,255,.12))",
                   border:"1px solid var(--border)", color:"var(--cyan)",
                 }}>
-                  Rate this seller
+                  Generate Meetup QR Code
                 </button>
               ) : (
-                <>
-                  <textarea
-                    value={reviewComment}
-                    onChange={e => setReviewComment(e.target.value)}
-                    placeholder="Optional comment..."
-                    rows={2}
-                    style={{
-                      width:"100%", padding:"10px 12px", borderRadius:10, marginBottom:10,
-                      background:"var(--panel2)", border:"1px solid var(--border)",
-                      color:"var(--text)", fontSize:13, fontFamily:"inherit",
-                      resize:"vertical", boxSizing:"border-box",
-                    }}
-                  />
-                  <div style={{ display:"flex", gap:8 }}>
-                    <button onClick={() => submitReview(true)} style={{
-                      flex:1, padding:"12px 0", borderRadius:10, fontSize:14, fontWeight:800,
-                      cursor:"pointer", fontFamily:"inherit",
-                      background:"rgba(46,204,113,.15)", border:"1.5px solid var(--green, #2ecc71)",
-                      color:"var(--green, #2ecc71)",
-                    }}>
-                      👍 Positive
-                    </button>
-                    <button onClick={() => submitReview(false)} style={{
-                      flex:1, padding:"12px 0", borderRadius:10, fontSize:14, fontWeight:800,
-                      cursor:"pointer", fontFamily:"inherit",
-                      background:"rgba(231,76,60,.15)", border:"1.5px solid var(--red, #e74c3c)",
-                      color:"var(--red, #e74c3c)",
-                    }}>
-                      👎 Negative
-                    </button>
+                <div style={{ textAlign:"center" }}>
+                  <div style={{ display:"inline-block", padding:16, background:"#fff", borderRadius:12, marginBottom:10 }}>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + "/meetup/" + meetupToken)}`}
+                      alt="Meetup QR"
+                      style={{ width:160, height:160, display:"block" }}
+                    />
                   </div>
-                </>
+                  <div className="muted" style={{ fontSize:11, marginBottom:8 }}>
+                    Both parties scan to confirm the meetup
+                  </div>
+                  <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
+                    <div style={{
+                      padding:"6px 12px", borderRadius:8, fontSize:11, fontWeight:700,
+                      background: meetupStatus?.seller ? "rgba(46,204,113,.15)" : "var(--panel2)",
+                      border: `1px solid ${meetupStatus?.seller ? "var(--green, #2ecc71)" : "var(--border)"}`,
+                      color: meetupStatus?.seller ? "var(--green, #2ecc71)" : "var(--muted)",
+                    }}>
+                      Seller {meetupStatus?.seller ? "\u2713" : "..."}
+                    </div>
+                    <div style={{
+                      padding:"6px 12px", borderRadius:8, fontSize:11, fontWeight:700,
+                      background: meetupStatus?.buyer ? "rgba(46,204,113,.15)" : "var(--panel2)",
+                      border: `1px solid ${meetupStatus?.buyer ? "var(--green, #2ecc71)" : "var(--border)"}`,
+                      color: meetupStatus?.buyer ? "var(--green, #2ecc71)" : "var(--muted)",
+                    }}>
+                      Buyer {meetupStatus?.buyer ? "\u2713" : "..."}
+                    </div>
+                  </div>
+                  {!meetupStatus?.buyer || !meetupStatus?.seller ? (
+                    <button onClick={async () => {
+                      try {
+                        const res = await api.confirmMeetup(meetupToken);
+                        setMeetupStatus({ buyer: res.buyer_confirmed, seller: res.seller_confirmed });
+                        if (res.completed) notify("Meetup confirmed by both parties!");
+                        else notify("Your confirmation recorded!");
+                      } catch(err) { notify(err.message); }
+                    }} style={{
+                      marginTop:10, padding:"10px 24px", borderRadius:10, fontSize:13, fontWeight:700,
+                      cursor:"pointer", fontFamily:"inherit",
+                      background:"var(--cyan)", border:"none", color:"#000",
+                    }}>
+                      Confirm Meetup
+                    </button>
+                  ) : (
+                    <div style={{ marginTop:10, padding:"10px 0", fontSize:14, fontWeight:800, color:"var(--green, #2ecc71)" }}>
+                      {"\u2705"} Transaction Complete!
+                    </div>
+                  )}
+                </div>
               )}
+            </Card>
+          )}
+
+          {/* Safety tips – collapsible */}
+          {warning.length > 0 && (
+            <Card style={{ marginTop:16 }}>
+              <button onClick={() => setSafetyOpen(p => !p)} style={{
+                width:"100%", display:"flex", justifyContent:"space-between", alignItems:"center",
+                background:"none", border:"none", cursor:"pointer", padding:0,
+                fontFamily:"inherit", color:"var(--text)",
+              }}>
+                <div className="h2" style={{ margin:0 }}>Safety Tips</div>
+                <span style={{ fontSize:12, color:"var(--muted)", fontWeight:600 }}>
+                  {safetyOpen ? "Hide" : "Show"}
+                </span>
+              </button>
+              {safetyOpen && (
+                <div className="muted" style={{ fontSize:13, marginTop:8 }}>
+                  {warning.map((w,i) => <div key={i} style={{ marginBottom:2 }}>{"\u2022"} {w}</div>)}
+                </div>
+              )}
+            </Card>
+          )}
+
+        </div>{/* end LEFT COLUMN */}
+
+        {/* ════════════════ RIGHT COLUMN ════════════════ */}
+        <div style={{
+          flex: isWide ? "0 0 320px" : undefined,
+          position: isWide ? "sticky" : undefined,
+          top: isWide ? 80 : undefined,
+          alignSelf: isWide ? "flex-start" : undefined,
+          marginTop: isWide ? 0 : 16,
+        }}>
+
+          {/* Desktop: title + price + badges */}
+          {isWide && (
+            <Card style={{ marginBottom:12 }}>
+              <div style={{ fontWeight:800, fontSize:22, lineHeight:1.3 }}>{listing.title}</div>
+              <div style={{ fontWeight:800, fontSize:28, color:"var(--cyan)", marginTop:4 }}>
+                {money(listing.price_cents)}
+              </div>
+              <div style={{ display:"flex", gap:6, marginTop:8, flexWrap:"wrap" }}>
+                <Badge color={condColor}>{listing.condition}</Badge>
+                {listing.category && <Badge style={{ textTransform:"capitalize" }}>{listing.category}</Badge>}
+                <Badge>{timeAgo(listing.created_at)}</Badge>
+                {listing.is_boosted && (
+                  <Badge color="var(--cyan)" bg="rgba(62,224,255,.08)">⚡ Boosted</Badge>
+                )}
+                {listing.bundle_discount_pct > 0 && (
+                  <Badge color="var(--green, #2ecc71)" bg="rgba(46,204,113,.10)">
+                    {listing.bundle_discount_pct}% off bundles
+                  </Badge>
+                )}
+              </div>
+              {listing.is_sold && (
+                <div style={{
+                  marginTop:10, padding:"8px 12px", borderRadius:10,
+                  background:"var(--red, #e74c3c)", color:"#fff",
+                  fontWeight:800, fontSize:13, textAlign:"center",
+                }}>
+                  This item has been sold
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Desktop: Seller card */}
+          {isWide && (
+            <div style={{ marginBottom:12 }}>
+              <SellerCard />
             </div>
           )}
-        </Card>
-      )}
 
-      {/* ── Listing Expiry Warning ── */}
-      {isOwner && (() => {
-        const base = listing.renewed_at || listing.created_at;
-        const daysOld = base ? Math.floor((Date.now() - new Date(base).getTime()) / 86400000) : 0;
-        const daysLeft = 30 - daysOld;
-        if (daysLeft > 7) return null;
-        return (
-          <div style={{
-            marginTop:14, padding:"10px 14px", borderRadius:12,
-            background: daysLeft <= 0 ? "rgba(231,76,60,.15)" : "rgba(255,165,0,.12)",
-            border: `1px solid ${daysLeft <= 0 ? "var(--red, #e74c3c)" : "orange"}`,
-            display:"flex", justifyContent:"space-between", alignItems:"center",
-          }}>
-            <div>
-              <div style={{ fontSize:13, fontWeight:700, color: daysLeft <= 0 ? "var(--red, #e74c3c)" : "orange" }}>
-                {daysLeft <= 0 ? "Listing expired" : `Expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}
-              </div>
-              <div className="muted" style={{ fontSize:11 }}>Renew to keep it visible</div>
-            </div>
-            <button onClick={async () => {
-              try {
-                const res = await api.renewListing(listing.id);
-                setListing(prev => ({ ...prev, renewed_at: res.renewed_at }));
-                notify("Listing renewed for 30 days!");
-              } catch(err) { notify(err.message); }
-            }} style={{
-              padding:"8px 16px", borderRadius:10, fontSize:12, fontWeight:700,
-              cursor:"pointer", fontFamily:"inherit",
-              background:"var(--cyan)", border:"none", color:"#000",
-            }}>
-              Renew
-            </button>
+          {/* Review */}
+          <ReviewSection />
+
+          {/* Expiry */}
+          <ExpiryBanner />
+
+          {/* Actions */}
+          <ActionButtons />
+
+        </div>{/* end RIGHT COLUMN */}
+
+      </div>{/* end 2-col wrapper */}
+
+      {/* Mobile sticky bottom CTA bar */}
+      {showStickyBar && !isWide && (
+        <div style={{
+          position:"fixed", bottom:60, left:0, right:0, zIndex:100,
+          background:"var(--panel)", borderTop:"1px solid var(--border)",
+          padding:"10px 16px",
+          display:"flex", alignItems:"center", gap:12,
+          backdropFilter:"blur(12px)",
+        }}>
+          <div>
+            <div style={{ fontSize:10, color:"var(--muted)", fontWeight:600 }}>Price</div>
+            <div style={{ fontSize:18, fontWeight:800, color:"var(--cyan)" }}>{money(listing.price_cents)}</div>
           </div>
-        );
-      })()}
-
-      {/* ── Action buttons ── */}
-      <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:10 }}>
-        {isOwner ? (
-          <>
-            {!editing && (
-              <Button variant="ghost" onClick={startEditing}>
-                Edit Listing
-              </Button>
-            )}
-
-            {/* Boost button */}
-            {!listing.is_boosted ? (
-              <Button onClick={() => {
-                loadBoostInfo();
-                setShowBoost(!showBoost);
-              }}>
-                Boost Listing
-              </Button>
-            ) : (
-              <div style={{
-                padding:"10px 14px", borderRadius:12, textAlign:"center",
-                background:"linear-gradient(135deg, rgba(62,224,255,.15), rgba(164,122,255,.15))",
-                border:"1px solid rgba(62,224,255,.30)",
-              }}>
-                <div style={{ fontSize:13, fontWeight:700, color:"var(--cyan)" }}>
-                  Currently Boosted
-                </div>
-                {countdown > 0 && (
-                  <div style={{ fontSize:11, fontWeight:600, color:"var(--muted)", marginTop:4, fontVariantNumeric:"tabular-nums" }}>
-                    Next free boost in {Math.floor(countdown/3600).toString().padStart(2,"0")}:{Math.floor((countdown%3600)/60).toString().padStart(2,"0")}:{(countdown%60).toString().padStart(2,"0")}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {showBoost && boostInfo && (
-              <Card>
-                <div style={{ fontSize:13, fontWeight:700, marginBottom:10 }}>Boost this listing</div>
-
-                {/* Pro free daily boost */}
-                {boostInfo.is_pro && (
-                  <div style={{ marginBottom:12 }}>
-                    {boostInfo.free_boost_available ? (
-                      <button onClick={() => activateBoost(24, true)} style={{
-                        width:"100%", padding:"14px 16px", borderRadius:12, cursor:"pointer",
-                        fontFamily:"inherit", fontSize:14, fontWeight:800,
-                        background:"linear-gradient(135deg, rgba(62,224,255,.18), rgba(164,122,255,.18))",
-                        border:"1.5px solid rgba(62,224,255,.50)", color:"var(--cyan)",
-                      }}>
-                        Free Daily 24h Boost (PRO)
-                      </button>
-                    ) : (
-                      <div style={{
-                        width:"100%", padding:"14px 16px", borderRadius:12, textAlign:"center",
-                        background:"var(--panel2)", border:"1px solid var(--border)", opacity:0.6,
-                      }}>
-                        <div style={{ fontSize:13, fontWeight:700, color:"var(--muted)" }}>
-                          Free boost used today
-                        </div>
-                        <div style={{ fontSize:12, fontWeight:600, color:"var(--cyan)", marginTop:4, fontVariantNumeric:"tabular-nums" }}>
-                          Resets in {Math.floor(countdown/3600).toString().padStart(2,"0")}:{Math.floor((countdown%3600)/60).toString().padStart(2,"0")}:{(countdown%60).toString().padStart(2,"0")}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Paid boost options (available to all users) */}
-                {boostDurations.length > 0 && (
-                  <>
-                    {boostInfo.is_pro && <div className="muted" style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>Or purchase a longer boost</div>}
-                    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                      {boostDurations.map(d => (
-                        <button key={d.hours} onClick={() => activateBoost(d.hours, false)} style={{
-                          display:"flex", justifyContent:"space-between", alignItems:"center",
-                          padding:"10px 12px", borderRadius:10, cursor:"pointer", fontFamily:"inherit",
-                          background:"var(--panel2)", border:"1px solid var(--border)", color:"var(--text)",
-                        }}>
-                          <span style={{ fontWeight:600, fontSize:13 }}>{d.label}</span>
-                          <span style={{ fontWeight:800, fontSize:13, color:"var(--cyan)" }}>${d.price_usd}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Boost rules toggle */}
-                <button onClick={() => setShowRules(!showRules)} style={{
-                  width:"100%", marginTop:10, padding:"8px 0", borderRadius:8,
-                  background:"none", border:"none", cursor:"pointer",
-                  fontSize:12, fontWeight:600, color:"var(--muted)", fontFamily:"inherit",
-                  textAlign:"center",
-                }}>
-                  {showRules ? "Hide boost rules" : "View boost rules"}
-                </button>
-                {showRules && boostRules.length > 0 && (
-                  <div style={{
-                    marginTop:4, padding:"10px 12px", borderRadius:10,
-                    background:"var(--panel2)", border:"1px solid var(--border)",
-                  }}>
-                    {boostRules.map((r, i) => (
-                      <div key={i} style={{ fontSize:11, lineHeight:1.6, color:"var(--muted)" }}>
-                        {"\u2022"} {r}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            )}
-
-            <Button
-              onClick={async () => {
-                try {
-                  await api.updateListing(listing.id, { is_sold: !listing.is_sold });
-                  setListing(prev => ({ ...prev, is_sold: !prev.is_sold }));
-                  notify(listing.is_sold ? "Marked as available." : "Marked as sold.");
-                } catch(err) { notify(err.message); }
-              }}
-            >
-              {listing.is_sold ? "Mark as Available" : "Mark as Sold"}
-            </Button>
-            <button
-              onClick={async () => {
-                if (!window.confirm("Delete this listing? This can't be undone.")) return;
-                try {
-                  await api.deleteListing(listing.id);
-                  try {
-                    const recent = JSON.parse(localStorage.getItem("pm_recent") || "[]");
-                    localStorage.setItem("pm_recent", JSON.stringify(recent.filter(r => r.id !== listing.id)));
-                  } catch {}
-                  notify("Listing deleted.");
-                  nav("/");
-                } catch(err) { notify(err.message); }
-              }}
-              style={{
-                padding:"12px 16px", borderRadius:14, fontSize:14, fontWeight:700,
-                background:"none", border:"1.5px solid var(--red, #e74c3c)",
-                color:"var(--red, #e74c3c)", cursor:"pointer",
-              }}
-            >
-              Delete Listing
-            </button>
-
-            {/* Offers received */}
-            {offers.length > 0 && (
-              <Card style={{ marginTop:4 }}>
-                <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Offers ({offers.length})</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-                  {offers.map(o => (
-                    <OfferRow key={o.id} offer={o} isOwner={true} onRespond={respondToOffer} />
-                  ))}
-                </div>
-              </Card>
-            )}
-          </>
-        ) : me?.user?.is_test_account ? (
-          <div style={{
-            padding:"14px", borderRadius:12, textAlign:"center",
-            background:"rgba(62,224,255,.06)", border:"1px solid rgba(62,224,255,.20)",
-          }}>
-            <div className="muted" style={{ fontSize:12, lineHeight:1.6 }}>
-              Messaging, offers, and purchasing are disabled on this review account.
-            </div>
-          </div>
-        ) : (
-          <>
-            <Button icon={<IconEye size={18} />} onClick={toggleObs}>
-              {observing ? "Saved" : "Save"}
-            </Button>
-
-            {/* Make an Offer */}
-            {!listing.is_sold && (
-              <>
-                <Button variant="ghost" onClick={() => setShowOffer(!showOffer)}>
-                  Make an Offer
-                </Button>
-                {showOffer && (
-                  <Card>
-                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-                      <span style={{ fontSize:16, fontWeight:800 }}>$</span>
-                      <input
-                        value={offerAmt}
-                        onChange={e => setOfferAmt(e.target.value)}
-                        placeholder="Your offer"
-                        type="number"
-                        style={{
-                          flex:1, padding:"10px 12px", borderRadius:10,
-                          background:"var(--panel2)", border:"1px solid var(--border)",
-                          color:"var(--text)", fontSize:14, fontFamily:"inherit",
-                        }}
-                      />
-                      <Button onClick={submitOffer} style={{ whiteSpace:"nowrap" }}>Send</Button>
-                    </div>
-                  </Card>
-                )}
-              </>
-            )}
-
-            <Button icon={<IconEnvelope size={18} />} onClick={messageSeller}>
-              Message Seller
-            </Button>
-
-            {/* Report Listing */}
-            <button onClick={() => setShowReport(!showReport)} style={{
-              padding:"12px 14px", borderRadius:14, fontSize:13, fontWeight:700,
-              background:"none", border:"1px solid var(--border)",
-              color:"var(--muted)", cursor:"pointer", fontFamily:"inherit",
-              width:"100%", textAlign:"center",
-            }}>
-              Report Listing
-            </button>
-            {showReport && (
-              <Card>
-                <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Why are you reporting this?</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                  {["Prohibited item", "Scam / fraud", "Misleading description", "Offensive content", "Other"].map(r => (
-                    <button key={r} onClick={() => setReportReason(r)} style={{
-                      padding:"10px 12px", borderRadius:10, fontSize:13, fontWeight:600,
-                      cursor:"pointer", fontFamily:"inherit", textAlign:"left",
-                      background: reportReason === r ? "rgba(62,224,255,.12)" : "var(--panel2)",
-                      border: reportReason === r ? "1px solid var(--cyan)" : "1px solid var(--border)",
-                      color: reportReason === r ? "var(--cyan)" : "var(--text)",
-                    }}>
-                      {r}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={async () => {
-                  if (!reportReason) { notify("Select a reason"); return; }
-                  try {
-                    await api.reportUser(listing.user_id, { listing_id: listing.id, reason: reportReason });
-                    setShowReport(false);
-                    setReportReason("");
-                    notify("Report submitted. We'll review it shortly.");
-                  } catch(err) { notify(err.message); }
-                }} style={{
-                  marginTop:10, width:"100%", padding:"12px 0", borderRadius:12,
-                  fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"inherit",
-                  background:"rgba(231,76,60,.12)", border:"1px solid var(--red, #e74c3c)",
-                  color:"var(--red, #e74c3c)",
-                }}>
-                  Submit Report
-                </button>
-              </Card>
-            )}
-
-            {/* My offers on this listing */}
-            {offers.filter(o => o.buyer_id === me?.user?.id).length > 0 && (
-              <Card>
-                <div style={{ fontSize:12, fontWeight:700, marginBottom:6 }}>Your Offers</div>
-                <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
-                  {offers.filter(o => o.buyer_id === me?.user?.id).map(o => (
-                    <OfferRow key={o.id} offer={o} isOwner={false} />
-                  ))}
-                </div>
-              </Card>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* ── Safe meetup ── */}
-      <div style={{ marginTop:20 }}>
-        <div className="h2">View Safe Meetup Spot</div>
-        <div style={{ marginTop:10 }}>
-          {listing.safe_meet ? (
-            <>
-              <ListingMap
-                lat={listing.safe_meet.lat}
-                lng={listing.safe_meet.lng}
-                title={listing.safe_meet.place_name}
-                height={200}
-              />
-              <div style={{ marginTop:8, display:"flex", alignItems:"center", gap:8 }}>
-                <IconPin size={16} color="var(--violet)" />
-                <div>
-                  <div style={{ fontWeight:700, fontSize:14 }}>{listing.safe_meet.place_name}</div>
-                  <div className="muted" style={{ fontSize:12 }}>{listing.safe_meet.address}</div>
-                </div>
-              </div>
-            </>
-          ) : listing.lat && listing.lng ? (
-            <>
-              <ListingMap lat={listing.lat} lng={listing.lng} title={listing.title} height={200} />
-              <div className="muted" style={{ fontSize:13, marginTop:8 }}>
-                Listing location shown. Seller hasn't set a safe meetup spot yet.
-              </div>
-            </>
-          ) : (
-            <div className="muted" style={{ fontSize:13 }}>
-              Seller hasn't set a safe meetup spot yet.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Similar Listings ── */}
-      {similar.length > 0 && (
-        <div style={{ marginTop:20 }}>
-          <div className="h2" style={{ marginBottom:10 }}>Similar Items</div>
-          <div className="grid">
-            {similar.map(s => (
-              <Link key={s.id} to={`/listing/${s.id}`}>
-                <Card noPadding>
-                  <div style={{ position:"relative" }}>
-                    {s.image ? (
-                      <img src={`${api.base}${s.image}`} alt={s.title} className="card-image" onError={e => { e.target.onerror=null; e.target.src=""; e.target.className="card-image-placeholder"; }} />
-                    ) : (
-                      <div className="card-image-placeholder"><IconCamera size={28} /></div>
-                    )}
-                  </div>
-                  <div style={{ padding:"8px 10px" }}>
-                    <div style={{ fontWeight:700, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-                      {s.title}
-                    </div>
-                    <div style={{ marginTop:2, fontWeight:800, fontSize:12 }}>{money(s.price_cents)}</div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          <Button onClick={messageSeller} style={{ flex:1 }} icon={<IconEnvelope size={16} />}>
+            Message Seller
+          </Button>
         </div>
       )}
 
-      {/* ── Meetup QR Confirmation ── */}
-      {listing.is_sold && (isOwner || me?.user?.id === listing.buyer_id) && (
-        <Card style={{ marginTop:16 }}>
-          <div style={{ fontSize:13, fontWeight:700, marginBottom:8 }}>Meetup Confirmation</div>
-          {!meetupToken ? (
-            <button onClick={async () => {
-              try {
-                const res = await api.createMeetupToken(listing.id);
-                setMeetupToken(res.token);
-                setMeetupStatus({ buyer: res.buyer_confirmed, seller: res.seller_confirmed });
-              } catch(err) { notify(err.message); }
-            }} style={{
-              width:"100%", padding:"10px 0", borderRadius:10, fontSize:13, fontWeight:700,
-              cursor:"pointer", fontFamily:"inherit",
-              background:"linear-gradient(135deg, rgba(62,224,255,.12), rgba(164,122,255,.12))",
-              border:"1px solid var(--border)", color:"var(--cyan)",
-            }}>
-              Generate Meetup QR Code
-            </button>
-          ) : (
-            <div style={{ textAlign:"center" }}>
-              <div style={{
-                display:"inline-block", padding:16, background:"#fff", borderRadius:12, marginBottom:10,
-              }}>
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.origin + "/meetup/" + meetupToken)}`}
-                  alt="Meetup QR"
-                  style={{ width:160, height:160, display:"block" }}
-                />
-              </div>
-              <div className="muted" style={{ fontSize:11, marginBottom:8 }}>
-                Both parties scan to confirm the meetup
-              </div>
-              <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
-                <div style={{
-                  padding:"6px 12px", borderRadius:8, fontSize:11, fontWeight:700,
-                  background: meetupStatus?.seller ? "rgba(46,204,113,.15)" : "var(--panel2)",
-                  border: `1px solid ${meetupStatus?.seller ? "var(--green, #2ecc71)" : "var(--border)"}`,
-                  color: meetupStatus?.seller ? "var(--green, #2ecc71)" : "var(--muted)",
-                }}>
-                  Seller {meetupStatus?.seller ? "\u2713" : "..."}
-                </div>
-                <div style={{
-                  padding:"6px 12px", borderRadius:8, fontSize:11, fontWeight:700,
-                  background: meetupStatus?.buyer ? "rgba(46,204,113,.15)" : "var(--panel2)",
-                  border: `1px solid ${meetupStatus?.buyer ? "var(--green, #2ecc71)" : "var(--border)"}`,
-                  color: meetupStatus?.buyer ? "var(--green, #2ecc71)" : "var(--muted)",
-                }}>
-                  Buyer {meetupStatus?.buyer ? "\u2713" : "..."}
-                </div>
-              </div>
-              {!meetupStatus?.buyer || !meetupStatus?.seller ? (
-                <button onClick={async () => {
-                  try {
-                    const res = await api.confirmMeetup(meetupToken);
-                    setMeetupStatus({ buyer: res.buyer_confirmed, seller: res.seller_confirmed });
-                    if (res.completed) notify("Meetup confirmed by both parties!");
-                    else notify("Your confirmation recorded!");
-                  } catch(err) { notify(err.message); }
-                }} style={{
-                  marginTop:10, padding:"10px 24px", borderRadius:10, fontSize:13, fontWeight:700,
-                  cursor:"pointer", fontFamily:"inherit",
-                  background:"var(--cyan)", border:"none", color:"#000",
-                }}>
-                  Confirm Meetup
-                </button>
-              ) : (
-                <div style={{
-                  marginTop:10, padding:"10px 0", fontSize:14, fontWeight:800,
-                  color:"var(--green, #2ecc71)",
-                }}>
-                  {"\u2705"} Transaction Complete!
-                </div>
-              )}
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* ── Safety warnings ── */}
-      {warning.length > 0 && (
-        <Card style={{ marginTop:16 }}>
-          <div className="h2">Safety</div>
-          <div className="muted" style={{ fontSize:13, marginTop:8 }}>
-            {warning.map((w,i) => <div key={i}>- {w}</div>)}
-          </div>
-        </Card>
-      )}
-
-      {/* ── Fullscreen image gallery ── */}
+      {/* Fullscreen image gallery */}
       {galleryOpen && images.length > 0 && (
         <ImageGallery
           images={images}

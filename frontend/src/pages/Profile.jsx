@@ -22,6 +22,7 @@ export default function Profile({ me, notify, refreshMe }){
   const [showSuggestion, setShowSuggestion] = useState(false);
   const [suggestion, setSuggestion] = useState("");
   const [sendingSuggestion, setSendingSuggestion] = useState(false);
+  const [safetyOpen, setSafetyOpen] = useState(false);
   const fileRef = useRef(null);
 
   const toggleTheme = () => {
@@ -111,11 +112,19 @@ export default function Profile({ me, notify, refreshMe }){
           <div>
             <div style={{ fontWeight:800, fontSize:18 }}>{me.user.display_name || "User"}</div>
             <div className="muted" style={{ fontSize:13, marginTop:2 }}>{me.user.email}</div>
-            <div style={{ marginTop:6 }}>
+            <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
               {me.user.is_pro
                 ? <span className="badgePro">PRO</span>
                 : <span className="pill" style={{ fontSize:11 }}>Free</span>
               }
+              {me.user.is_verified_seller && (
+                <span style={{ fontSize:12, color:"var(--cyan)", fontWeight:700 }}>{"\u2705"} Verified</span>
+              )}
+              {me.user.created_at && (
+                <span className="muted" style={{ fontSize:11 }}>
+                  Member since {new Date(me.user.created_at).getFullYear()}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -390,111 +399,142 @@ export default function Profile({ me, notify, refreshMe }){
         <div className="h2" style={{ marginBottom:10 }}>Support & Info</div>
         <Card>
           <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
-            <Link to="/support" style={{ textDecoration:"none", color:"inherit" }}>
-              <div style={{
-                display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"12px 0", borderBottom:"1px solid var(--border)",
-              }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:16 }}>&#x1F6DF;</span>
-                  <span style={{ fontWeight:600, fontSize:14 }}>Help & Support</span>
+            {[
+              { to:"/support", emoji:"🛟", label:"Help & Support" },
+              { to:"/about", emoji:"ℹ️", label:"About Pocket Market" },
+              { to:"/how-it-works", emoji:"🔍", label:"How It Works" },
+            ].map(({ to, emoji, label }, i, arr) => (
+              <Link key={to} to={to} style={{ textDecoration:"none", color:"inherit" }}>
+                <div style={{
+                  display:"flex", justifyContent:"space-between", alignItems:"center",
+                  padding:"12px 0",
+                  borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+                }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <span style={{ fontSize:16 }}>{emoji}</span>
+                    <span style={{ fontWeight:600, fontSize:14 }}>{label}</span>
+                  </div>
+                  <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
                 </div>
-                <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
-              </div>
-            </Link>
-            <Link to="/terms" style={{ textDecoration:"none", color:"inherit" }}>
-              <div style={{
-                display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"12px 0", borderBottom:"1px solid var(--border)",
-              }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:16 }}>&#x1F4CB;</span>
-                  <span style={{ fontWeight:600, fontSize:14 }}>Terms of Service</span>
-                </div>
-                <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
-              </div>
-            </Link>
-            <Link to="/privacy" style={{ textDecoration:"none", color:"inherit" }}>
-              <div style={{
-                display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"12px 0", borderBottom:"1px solid var(--border)",
-              }}>
-                <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                  <span style={{ fontSize:16 }}>&#x1F512;</span>
-                  <span style={{ fontWeight:600, fontSize:14 }}>Privacy Policy</span>
-                </div>
-                <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
-              </div>
-            </Link>
-            <div
-              onClick={() => setShowSuggestion(!showSuggestion)}
-              style={{
-                display:"flex", justifyContent:"space-between", alignItems:"center",
-                padding:"12px 0", cursor:"pointer",
-              }}
-            >
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <span style={{ fontSize:16 }}>&#x1F4A1;</span>
-                <span style={{ fontWeight:600, fontSize:14 }}>Send a Suggestion</span>
-              </div>
-              <span className="muted" style={{ fontSize:16 }}>{showSuggestion ? "\u2039" : "\u203A"}</span>
-            </div>
-            {showSuggestion && (
-              <div style={{ paddingBottom:8 }}>
-                <textarea
-                  value={suggestion}
-                  onChange={e => setSuggestion(e.target.value)}
-                  placeholder="Have an idea or feature request? Let us know!"
-                  rows={3}
-                  style={{
-                    width:"100%", padding:"10px 12px", borderRadius:10, fontSize:13,
-                    background:"var(--input-bg)", border:"1px solid var(--border)",
-                    color:"var(--text)", fontFamily:"inherit", outline:"none", resize:"vertical",
-                  }}
-                />
-                <button
-                  disabled={!suggestion.trim() || sendingSuggestion}
-                  onClick={async () => {
-                    setSendingSuggestion(true);
-                    try {
-                      await api.supportContact({
-                        email: me.user.email,
-                        message: suggestion.trim(),
-                        type: "suggestion",
-                      });
-                      notify("Suggestion sent! Thanks for the feedback.");
-                      setSuggestion("");
-                      setShowSuggestion(false);
-                    } catch(err) { notify(err.message); }
-                    finally { setSendingSuggestion(false); }
-                  }}
-                  style={{
-                    marginTop:8, padding:"10px 20px", borderRadius:10, fontSize:13, fontWeight:700,
-                    cursor: !suggestion.trim() || sendingSuggestion ? "not-allowed" : "pointer",
-                    fontFamily:"inherit", border:"none",
-                    background: !suggestion.trim() || sendingSuggestion ? "var(--panel2)" : "var(--cyan)",
-                    color: !suggestion.trim() || sendingSuggestion ? "var(--muted)" : "#000",
-                    width:"100%",
-                  }}
-                >
-                  {sendingSuggestion ? "Sending..." : "Send Suggestion"}
-                </button>
-              </div>
-            )}
+              </Link>
+            ))}
           </div>
         </Card>
-      </div>
 
-      {/* Safety tips */}
-      <Card style={{ marginTop:16 }}>
-        <div className="h2">Safety Tips</div>
-        <div className="muted" style={{ fontSize:13, marginTop:8, lineHeight:1.6 }}>
-          <div>- Meet in a public, well-lit place</div>
-          <div>- Bring a friend when possible</div>
-          <div>- Inspect items before paying</div>
-          <div>- Never share your home address</div>
-        </div>
-      </Card>
+        {/* Legal */}
+        <div className="muted" style={{ fontSize:11, fontWeight:700, marginTop:14, marginBottom:6, paddingLeft:2 }}>LEGAL</div>
+        <Card>
+          <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+            {[
+              { to:"/terms", emoji:"📋", label:"Terms of Service" },
+              { to:"/privacy", emoji:"🔒", label:"Privacy Policy" },
+              { to:"/refunds", emoji:"↩️", label:"Refund Policy" },
+              { to:"/prohibited-items", emoji:"🚫", label:"Prohibited Items" },
+              { to:"/contact", emoji:"✉️", label:"Contact Us" },
+            ].map(({ to, emoji, label }, i, arr) => (
+              <Link key={to} to={to} style={{ textDecoration:"none", color:"inherit" }}>
+                <div style={{
+                  display:"flex", justifyContent:"space-between", alignItems:"center",
+                  padding:"12px 0",
+                  borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
+                }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <span style={{ fontSize:14 }}>{emoji}</span>
+                    <span style={{ fontWeight:600, fontSize:14 }}>{label}</span>
+                  </div>
+                  <span className="muted" style={{ fontSize:16 }}>&rsaquo;</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Card>
+
+        {/* Safety tips */}
+        <div className="muted" style={{ fontSize:11, fontWeight:700, marginTop:14, marginBottom:6, paddingLeft:2 }}>SAFETY</div>
+        <Card>
+          <div
+            onClick={() => setSafetyOpen(p => !p)}
+            style={{
+              display:"flex", justifyContent:"space-between", alignItems:"center",
+              cursor:"pointer",
+            }}
+          >
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:16 }}>🛡️</span>
+              <span style={{ fontWeight:600, fontSize:14 }}>Safety Tips</span>
+            </div>
+            <span className="muted" style={{ fontSize:16 }}>{safetyOpen ? "\u2038" : "\u203A"}</span>
+          </div>
+          {safetyOpen && (
+            <div className="muted" style={{ fontSize:13, marginTop:10, lineHeight:1.8 }}>
+              <div>• Meet in a public, well-lit place</div>
+              <div>• Bring a friend when possible</div>
+              <div>• Inspect items before paying</div>
+              <div>• Never share your home address</div>
+            </div>
+          )}
+        </Card>
+
+        {/* Suggestion */}
+        <div className="muted" style={{ fontSize:11, fontWeight:700, marginTop:14, marginBottom:6, paddingLeft:2 }}>FEEDBACK</div>
+        <Card>
+          <div
+            onClick={() => setShowSuggestion(p => !p)}
+            style={{
+              display:"flex", justifyContent:"space-between", alignItems:"center",
+              cursor:"pointer",
+            }}
+          >
+            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:16 }}>💡</span>
+              <span style={{ fontWeight:600, fontSize:14 }}>Send a Suggestion</span>
+            </div>
+            <span className="muted" style={{ fontSize:16 }}>{showSuggestion ? "\u2038" : "\u203A"}</span>
+          </div>
+          {showSuggestion && (
+            <div style={{ marginTop:10 }}>
+              <textarea
+                value={suggestion}
+                onChange={e => setSuggestion(e.target.value)}
+                placeholder="Have an idea or feature request? Let us know!"
+                rows={3}
+                style={{
+                  width:"100%", padding:"10px 12px", borderRadius:10, fontSize:13,
+                  background:"var(--input-bg)", border:"1px solid var(--border)",
+                  color:"var(--text)", fontFamily:"inherit", outline:"none", resize:"vertical",
+                }}
+              />
+              <button
+                disabled={!suggestion.trim() || sendingSuggestion}
+                onClick={async () => {
+                  setSendingSuggestion(true);
+                  try {
+                    await api.supportContact({
+                      email: me.user.email,
+                      message: suggestion.trim(),
+                      type: "suggestion",
+                    });
+                    notify("Suggestion sent! Thanks for the feedback.");
+                    setSuggestion("");
+                    setShowSuggestion(false);
+                  } catch(err) { notify(err.message); }
+                  finally { setSendingSuggestion(false); }
+                }}
+                style={{
+                  marginTop:8, padding:"10px 20px", borderRadius:10, fontSize:13, fontWeight:700,
+                  cursor: !suggestion.trim() || sendingSuggestion ? "not-allowed" : "pointer",
+                  fontFamily:"inherit", border:"none",
+                  background: !suggestion.trim() || sendingSuggestion ? "var(--panel2)" : "var(--cyan)",
+                  color: !suggestion.trim() || sendingSuggestion ? "var(--muted)" : "#000",
+                  width:"100%",
+                }}
+              >
+                {sendingSuggestion ? "Sending..." : "Send Suggestion"}
+              </button>
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* Logout */}
       <div style={{ marginTop:16, marginBottom:20 }}>

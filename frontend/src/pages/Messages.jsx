@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import TopBar from "../components/TopBar.jsx";
 import Card from "../components/Card.jsx";
+import Button from "../components/Button.jsx";
 import { IconCamera } from "../components/Icons.jsx";
 import { api } from "../api.js";
 
@@ -17,6 +18,7 @@ function timeAgo(iso){
 }
 
 export default function Messages({ notify }){
+  const nav = useNavigate();
   const [rows, setRows] = useState([]);
   const [busy, setBusy] = useState(true);
 
@@ -38,7 +40,14 @@ export default function Messages({ notify }){
       {busy ? (
         <Card><div className="muted">Loading...</div></Card>
       ) : rows.length === 0 ? (
-        <Card><div className="muted" style={{ textAlign:"center" }}>No conversations yet. Message a seller to start chatting.</div></Card>
+        <div style={{ textAlign:"center", padding:"40px 20px" }}>
+          <div style={{ fontSize:52, marginBottom:16, lineHeight:1 }}>💬</div>
+          <div style={{ fontWeight:800, fontSize:18, marginBottom:8 }}>No messages yet</div>
+          <div className="muted" style={{ fontSize:14, lineHeight:1.6, marginBottom:24 }}>
+            When you message a seller,{"\n"}conversations will appear here.
+          </div>
+          <Button onClick={() => nav("/")}>Browse Listings</Button>
+        </div>
       ) : (
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
           {rows.map(c => (
@@ -63,8 +72,17 @@ export default function Messages({ notify }){
                 {/* Text content */}
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div style={{ fontWeight:700, fontSize:14 }}>{c.other_user_name}</div>
-                    <div className="muted" style={{ fontSize:11, flexShrink:0 }}>{timeAgo(c.last_message_at)}</div>
+                    <div style={{ fontWeight: c.unread_count > 0 ? 800 : 700, fontSize:14 }}>{c.other_user_name}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+                      {c.unread_count > 0 && (
+                        <div style={{
+                          minWidth:18, height:18, borderRadius:9, padding:"0 5px",
+                          background:"var(--cyan)", color:"#000",
+                          fontSize:10, fontWeight:800, display:"flex", alignItems:"center", justifyContent:"center",
+                        }}>{c.unread_count}</div>
+                      )}
+                      <div className="muted" style={{ fontSize:11 }}>{timeAgo(c.last_message_at)}</div>
+                    </div>
                   </div>
                   <div className="muted" style={{ fontSize:12, marginTop:2 }}>{c.listing_title}</div>
                   {c.last_message && (

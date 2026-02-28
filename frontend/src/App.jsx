@@ -147,7 +147,8 @@ export default function App(){
   const authPages = ["/login", "/signup", "/forgot", "/reset", "/verify"];
   const publicPages = ["/about", "/privacy", "/terms", "/contact", "/prohibited-items", "/how-it-works", "/refunds", "/info"];
   const hideNav = authPages.includes(loc.pathname) || publicPages.includes(loc.pathname) || loc.pathname === "/admin" || !me.authed;
-  const showFooter = !authPages.includes(loc.pathname);
+  const isPublicPage = publicPages.includes(loc.pathname);
+  const isAuthPage = authPages.includes(loc.pathname);
 
   return (
     <>
@@ -255,8 +256,8 @@ export default function App(){
 
           <Route path="*" element={<NotFound />} />
         </Routes>
-        {showFooter && !publicPages.includes(loc.pathname) && <AdFooter isPro={me?.user?.is_pro} />}
-        {showFooter && <Footer />}
+        {!isAuthPage && !isPublicPage && <AdFooter isPro={me?.user?.is_pro} />}
+        {isPublicPage && <Footer />}
       </div>
 
       {me?.user?.is_test_account && (

@@ -1,5 +1,20 @@
-// Pocket Market Service Worker — handles push notifications
+// Pocket Market Service Worker
 
+// ── Install & activate ──────────────────────────────────────────────────────
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", event => event.waitUntil(clients.claim()));
+
+// ── Fetch handler (required for PWA installability) ─────────────────────────
+// Strategy: network-first for everything, skip non-GET and API calls.
+self.addEventListener("fetch", event => {
+  if (event.request.method !== "GET") return;
+  if (event.request.url.includes("/api/")) return;
+  // Let the browser handle normally — just having this handler satisfies Chrome's PWA requirement
+  // without breaking anything. Cache-heavy strategies can be added later.
+  event.respondWith(fetch(event.request));
+});
+
+// ── Push notifications ───────────────────────────────────────────────────────
 self.addEventListener("push", (event) => {
   if (!event.data) return;
   try {

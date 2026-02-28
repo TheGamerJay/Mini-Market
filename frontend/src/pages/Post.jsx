@@ -7,6 +7,21 @@ import Button from "../components/Button.jsx";
 import { IconCamera, IconPlus, IconX } from "../components/Icons.jsx";
 import { api } from "../api.js";
 
+const CATEGORIES = [
+  { value:"electronics", emoji:"💻", label:"Electronics" },
+  { value:"clothing", emoji:"👕", label:"Clothing" },
+  { value:"furniture", emoji:"🪑", label:"Furniture" },
+  { value:"art", emoji:"🎨", label:"Art" },
+  { value:"books", emoji:"📚", label:"Books" },
+  { value:"sports", emoji:"⚽", label:"Sports" },
+  { value:"toys", emoji:"🧸", label:"Toys" },
+  { value:"home", emoji:"🏠", label:"Home" },
+  { value:"auto", emoji:"🚗", label:"Auto" },
+  { value:"other", emoji:"📦", label:"Other" },
+];
+
+const CONDITIONS = ["new", "like new", "used", "fair"];
+
 export default function Post({ notify }){
   const nav = useNavigate();
   const [title, setTitle] = useState("");
@@ -82,44 +97,62 @@ export default function Post({ notify }){
         <form onSubmit={onSubmit} className="col">
           <Input label="Title" placeholder="What are you selling?" value={title} onChange={e=>setTitle(e.target.value)} />
           <Input label="Price (USD)" placeholder="$0.00" value={price} onChange={e=>setPrice(e.target.value)} />
-          <div className="col" style={{gap:4}}>
+
+          {/* Category pills */}
+          <div className="col" style={{gap:6}}>
             <div className="muted" style={{fontSize:13}}>Category</div>
-            <select value={category} onChange={e=>setCategory(e.target.value)} style={{
-              width:"100%", padding:"12px 12px", borderRadius:14,
-              border:"1px solid var(--border)", background:"var(--input-bg)",
-              color:"var(--text)", outline:"none", fontSize:14,
-            }}>
-              <option value="electronics">Electronics</option>
-              <option value="clothing">Clothing</option>
-              <option value="furniture">Furniture</option>
-              <option value="art">Art</option>
-              <option value="books">Books</option>
-              <option value="sports">Sports</option>
-              <option value="toys">Toys</option>
-              <option value="home">Home</option>
-              <option value="auto">Auto</option>
-              <option value="other">Other</option>
-            </select>
+            <div style={{ display:"flex", gap:8, overflowX:"auto", paddingBottom:2 }}>
+              {CATEGORIES.map(c => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => setCategory(c.value)}
+                  style={{
+                    flexShrink:0, padding:"8px 14px", borderRadius:20, fontSize:13, fontWeight:600,
+                    cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap",
+                    border: category === c.value ? "1.5px solid var(--cyan)" : "1px solid var(--border)",
+                    background: category === c.value ? "rgba(62,224,255,.12)" : "var(--panel2)",
+                    color: category === c.value ? "var(--cyan)" : "var(--text)",
+                  }}
+                >
+                  {c.emoji} {c.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="col" style={{gap:4}}>
+          {/* Condition pills */}
+          <div className="col" style={{gap:6}}>
             <div className="muted" style={{fontSize:13}}>Condition</div>
-            <select value={condition} onChange={e=>setCondition(e.target.value)} style={{
-              width:"100%", padding:"12px 12px", borderRadius:14,
-              border:"1px solid var(--border)", background:"var(--input-bg)",
-              color:"var(--text)", outline:"none", fontSize:14,
-            }}>
-              <option value="new">New</option>
-              <option value="like new">Like New</option>
-              <option value="used">Used</option>
-              <option value="fair">Fair</option>
-            </select>
+            <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+              {CONDITIONS.map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCondition(c)}
+                  style={{
+                    padding:"8px 16px", borderRadius:20, fontSize:13, fontWeight:600,
+                    cursor:"pointer", fontFamily:"inherit", whiteSpace:"nowrap",
+                    border: condition === c ? "1.5px solid var(--cyan)" : "1px solid var(--border)",
+                    background: condition === c ? "rgba(62,224,255,.12)" : "var(--panel2)",
+                    color: condition === c ? "var(--cyan)" : "var(--text)",
+                    textTransform:"capitalize",
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
+
           <Input label="ZIP Code" placeholder="e.g. 01826" value={zip} onChange={e=>setZip(e.target.value.replace(/[^0-9]/g, "").slice(0, 5))} />
 
           {/* ── Photos ── */}
           <div className="col" style={{gap:8}}>
-            <div className="muted" style={{fontSize:13}}>Photos</div>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div className="muted" style={{fontSize:13}}>Photos</div>
+              <div className="muted" style={{fontSize:11}}>{files.length}/8</div>
+            </div>
             <input
               ref={fileRef}
               type="file"
@@ -128,34 +161,58 @@ export default function Post({ notify }){
               onChange={addFiles}
               style={{ display:"none" }}
             />
-            <div style={{ display:"flex", gap:8, overflowX:"auto", paddingTop:4 }}>
-              {previews.map((src, i) => (
-                <div key={i} style={{ position:"relative", flexShrink:0 }}>
-                  <img src={src} alt="" style={{
-                    width:72, height:72, objectFit:"cover", borderRadius:10,
-                    border:"1px solid var(--border)",
-                  }} />
-                  <button type="button" onClick={() => removeFile(i)} style={{
-                    position:"absolute", top:-6, right:-6,
-                    width:20, height:20, borderRadius:"50%",
-                    background:"var(--red, #e74c3c)", border:"none",
-                    display:"flex", alignItems:"center", justifyContent:"center",
-                    cursor:"pointer", padding:0,
-                  }}>
-                    <IconX size={12} color="#fff" />
-                  </button>
-                </div>
-              ))}
+
+            {/* Empty photo state — large drop zone */}
+            {previews.length === 0 ? (
               <button type="button" onClick={() => fileRef.current?.click()} style={{
-                width:72, height:72, borderRadius:10, flexShrink:0,
-                border:"2px dashed var(--border)", background:"none",
+                width:"100%", height:140, borderRadius:14,
+                border:"2px dashed var(--border)", background:"var(--panel2)",
                 display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                gap:4, cursor:"pointer", color:"var(--muted)",
+                gap:8, cursor:"pointer", color:"var(--muted)",
               }}>
-                <IconCamera size={20} />
-                <span style={{ fontSize:10 }}>Add</span>
+                <IconCamera size={32} />
+                <div style={{ fontWeight:600, fontSize:13 }}>Add up to 8 photos</div>
+                <div style={{ fontSize:11 }}>First photo will be the cover</div>
               </button>
-            </div>
+            ) : (
+              <div style={{ display:"flex", gap:8, overflowX:"auto", paddingTop:4 }}>
+                {previews.map((src, i) => (
+                  <div key={i} style={{ position:"relative", flexShrink:0 }}>
+                    <img src={src} alt="" style={{
+                      width:80, height:80, objectFit:"cover", borderRadius:10,
+                      border: i === 0 ? "2px solid var(--cyan)" : "1px solid var(--border)",
+                    }} />
+                    {i === 0 && (
+                      <div style={{
+                        position:"absolute", bottom:4, left:4, right:4, textAlign:"center",
+                        fontSize:9, fontWeight:800, color:"#000",
+                        background:"var(--cyan)", borderRadius:4, padding:"1px 0",
+                      }}>COVER</div>
+                    )}
+                    <button type="button" onClick={() => removeFile(i)} style={{
+                      position:"absolute", top:-6, right:-6,
+                      width:20, height:20, borderRadius:"50%",
+                      background:"var(--red, #e74c3c)", border:"none",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      cursor:"pointer", padding:0,
+                    }}>
+                      <IconX size={12} color="#fff" />
+                    </button>
+                  </div>
+                ))}
+                {files.length < 8 && (
+                  <button type="button" onClick={() => fileRef.current?.click()} style={{
+                    width:80, height:80, borderRadius:10, flexShrink:0,
+                    border:"2px dashed var(--border)", background:"none",
+                    display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                    gap:4, cursor:"pointer", color:"var(--muted)",
+                  }}>
+                    <IconCamera size={20} />
+                    <span style={{ fontSize:10 }}>Add</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="col" style={{gap:8}}>
@@ -178,7 +235,6 @@ export default function Post({ notify }){
             />
           </div>
 
-          <Button disabled={busy}>{busy ? "Posting..." : "Post item"}</Button>
           <button type="button" disabled={busy} onClick={(e) => onSubmit(e, true)} style={{
             width:"100%", padding:"12px 16px", borderRadius:14, fontSize:14, fontWeight:700,
             cursor:"pointer", fontFamily:"inherit",
@@ -186,8 +242,31 @@ export default function Post({ notify }){
           }}>
             Save as Draft
           </button>
+          {/* spacer for sticky bar */}
+          <div style={{ height:24 }} />
         </form>
       </Card>
+
+      {/* Sticky bottom CTA */}
+      <div style={{
+        position:"fixed", bottom:60, left:0, right:0, zIndex:100,
+        background:"var(--panel)", borderTop:"1px solid var(--border)",
+        padding:"10px 16px",
+        backdropFilter:"blur(12px)",
+      }}>
+        <button
+          disabled={busy}
+          onClick={(e) => onSubmit(e, false)}
+          style={{
+            width:"100%", padding:"14px", borderRadius:14, fontSize:15, fontWeight:800,
+            cursor: busy ? "not-allowed" : "pointer", fontFamily:"inherit", border:"none",
+            background: busy ? "var(--panel2)" : "var(--cyan)",
+            color: busy ? "var(--muted)" : "#000",
+          }}
+        >
+          {busy ? "Posting..." : "Post Item"}
+        </button>
+      </div>
     </>
   );
 }
