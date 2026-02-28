@@ -80,7 +80,7 @@ export default function Saved({ notify }){
   const [itemsBusy, setItemsBusy] = useState(true);
   const [searches, setSearches] = useState([]);
   const [searchesBusy, setSearchesBusy] = useState(true);
-  const [recent] = useState(() => {
+  const [recent, setRecent] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pm_recent") || "[]"); } catch { return []; }
   });
 
@@ -103,6 +103,19 @@ export default function Saved({ notify }){
         setSearches(res.saved_searches || []);
       } catch(err) { notify(err.message); }
       finally { setSearchesBusy(false); }
+    })();
+    // Validate recent listings — remove any that no longer exist
+    (async () => {
+      try {
+        const raw = JSON.parse(localStorage.getItem("pm_recent") || "[]");
+        if (raw.length === 0) return;
+        const results = await Promise.all(raw.map(r => api.listing(r.id).catch(() => null)));
+        const valid = raw.filter((_, i) => results[i] !== null);
+        if (valid.length !== raw.length) {
+          localStorage.setItem("pm_recent", JSON.stringify(valid));
+          setRecent(valid);
+        }
+      } catch {}
     })();
   }, []);
 
