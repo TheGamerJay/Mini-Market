@@ -146,7 +146,7 @@ export default function App(){
 
   const authPages = ["/login", "/signup", "/forgot", "/reset", "/verify"];
   const publicPages = ["/about", "/privacy", "/terms", "/contact", "/prohibited-items", "/how-it-works", "/refunds", "/info"];
-  const hideNav = authPages.includes(loc.pathname) || publicPages.includes(loc.pathname) || loc.pathname === "/admin" || !me.authed;
+  const hideNav = authPages.includes(loc.pathname) || publicPages.includes(loc.pathname) || loc.pathname === "/pmdash" || !me.authed;
   const isPublicPage = publicPages.includes(loc.pathname);
   const isAuthPage = authPages.includes(loc.pathname);
 
@@ -242,7 +242,7 @@ export default function App(){
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/refunds" element={<Refunds />} />
           <Route path="/info" element={<Info />} />
-          <Route path="/admin" element={
+          <Route path="/pmdash" element={
             <RequireAuth authed={me.authed} loading={me.loading}>
               <Admin me={me} />
             </RequireAuth>
