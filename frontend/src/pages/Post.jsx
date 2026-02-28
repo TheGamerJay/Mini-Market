@@ -235,6 +235,7 @@ export default function Post({ notify }){
             />
           </div>
 
+          <Button disabled={busy}>{busy ? "Posting..." : "Post Item"}</Button>
           <button type="button" disabled={busy} onClick={(e) => onSubmit(e, true)} style={{
             width:"100%", padding:"12px 16px", borderRadius:14, fontSize:14, fontWeight:700,
             cursor:"pointer", fontFamily:"inherit",
@@ -242,31 +243,8 @@ export default function Post({ notify }){
           }}>
             Save as Draft
           </button>
-          {/* spacer for sticky bar */}
-          <div style={{ height:24 }} />
         </form>
       </Card>
-
-      {/* Sticky bottom CTA */}
-      <div style={{
-        position:"fixed", bottom:60, left:0, right:0, zIndex:100,
-        background:"var(--panel)", borderTop:"1px solid var(--border)",
-        padding:"10px 16px",
-        backdropFilter:"blur(12px)",
-      }}>
-        <button
-          disabled={busy}
-          onClick={(e) => onSubmit(e, false)}
-          style={{
-            width:"100%", padding:"14px", borderRadius:14, fontSize:15, fontWeight:800,
-            cursor: busy ? "not-allowed" : "pointer", fontFamily:"inherit", border:"none",
-            background: busy ? "var(--panel2)" : "var(--cyan)",
-            color: busy ? "var(--muted)" : "#000",
-          }}
-        >
-          {busy ? "Posting..." : "Post Item"}
-        </button>
-      </div>
     </>
   );
 }
