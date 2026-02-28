@@ -527,9 +527,9 @@ export default function Listing({ me, notify }){
               } catch(err) { notify(err.message); }
             }}
             style={{
-              padding:"10px 16px", borderRadius:14, fontSize:13, fontWeight:600,
-              background:"none", border:"1px solid var(--border)",
-              color:"var(--muted)", cursor:"pointer", fontFamily:"inherit",
+              padding:"10px 16px", borderRadius:14, fontSize:13, fontWeight:700,
+              background:"rgba(231,76,60,.10)", border:"1.5px solid var(--red,#e74c3c)",
+              color:"var(--red,#e74c3c)", cursor:"pointer", fontFamily:"inherit",
             }}
           >
             Delete Listing
